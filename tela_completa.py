@@ -1,13 +1,9 @@
 import asyncio
 import datetime
 import io
-import json
-import math
 import os
-import re
 import threading
 import time
-import urllib.request
 
 import libusb_package
 import usb.util
@@ -28,27 +24,18 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 ARQUIVO = "video_tela.mp4"
 FPS = 30
 LARGURA = 300             # largura máxima do texto
-TAM_CAPA = 150            # diâmetro da capa do álbum
+TAM_CAPA = 240            # diâmetro da capa do álbum
 ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
-ATUALIZA_A_CADA = 2       # segundos entre atualizações dos anéis e do texto
-URL_SENSORES = "http://localhost:8085/data.json"
+ATUALIZA_A_CADA = 0.15       # atualiza o anel/progresso a cada 0.15 segundo
 
-# (rótulo, trecho do nome no LibreHardwareMonitor,
-#  limites amarelo/laranja/vermelho em graus, ângulo inicial do arco)
-SENSORES = [
-    ("CPU", "Tctl", (65, 75, 85), 195),
-    ("GPU", "GPU Core", (72, 80, 86), 255),
-    ("SSD", "Composite", (55, 65, 70), 315),
-]
 TRILHA = (255, 255, 255, 60)
-GRAU = "\u00b0"
 
 parar = threading.Event()
 estado = {
-    "musica": None, "capa": None, "pos": 0.0, "dur": 0.0,
-    "t_poll": 0.0, "tocando": False, "temps": {},
+    "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
+    "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
 }
 
 
@@ -68,19 +55,29 @@ def brilho_para(agora):
         return 0
     if h >= 22 or h < 1:
         return 20
-    return 60
+    return 100
 
 
-def fonte(nome, tamanho):
+def fonte(nome_arquivo, tamanho):
     try:
-        return ImageFont.truetype(nome, tamanho)
-    except OSError:
+        # Procura primeiro na pasta local do script (caso tenha colocado o .otf na mesma pasta)
+        if os.path.exists(nome_arquivo):
+            return ImageFont.truetype(nome_arquivo, tamanho)
+        
+        # Se não estiver na pasta local, procura na pasta de fontes do Windows
+        caminho_windows = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", nome_arquivo)
+        if os.path.exists(caminho_windows):
+            return ImageFont.truetype(caminho_windows, tamanho)
+            
+        # Tenta carregar diretamente (caso passe o caminho absoluto)
+        return ImageFont.truetype(nome_arquivo, tamanho)
+    except Exception as e:
+        print(f"[ERRO] Não foi possível carregar a fonte '{nome_arquivo}': {e}")
         return ImageFont.load_default()
 
-
-F_TITULO = fonte("segoeuib.ttf", 34)
-F_ARTISTA = fonte("segoeui.ttf", 24)
-F_SENSOR = fonte("segoeuib.ttf", 20)
+# Exemplo de uso com a sua fonte .otf (substitua pelo nome exato do ficheiro, ex: "minha_fonte.otf")
+F_TITULO = fonte("SFPRODISPLAYBOLD.otf", 32)
+F_ARTISTA = fonte("SFPRODISPLAYREGULAR.otf", 20)
 
 
 def cortar(d, texto, f):
@@ -94,99 +91,119 @@ def cortar(d, texto, f):
 def txt(d, x, y, texto, f, cor, ancora="mt"):
     d.text(
         (x, y), texto, font=f, fill=cor, anchor=ancora,
-        stroke_width=3, stroke_fill=(0, 0, 0, 255),
+        stroke_width=0, stroke_fill=(0, 0, 0, 255),
     )
-
-
-def cor_temp(v, limites):
-    amarelo, laranja, vermelho = limites
-    if v >= vermelho:
-        return (255, 70, 70, 255)
-    if v >= laranja:
-        return (255, 150, 40, 255)
-    if v >= amarelo:
-        return (255, 220, 60, 255)
-    return (80, 220, 120, 255)
 
 
 def preparar_capa(dados):
     img = Image.open(io.BytesIO(dados)).convert("RGB")
+    
+    # Extrai cor predominante para o anel de progresso
+    cor_media = img.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
+    cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
+
     lado = min(img.size)
     x0 = (img.width - lado) // 2
     y0 = (img.height - lado) // 2
     img = img.crop((x0, y0, x0 + lado, y0 + lado))
     img = img.resize((TAM_CAPA, TAM_CAPA), Image.LANCZOS)
+    
     grande = TAM_CAPA * 4
     mascara = Image.new("L", (grande, grande), 0)
     ImageDraw.Draw(mascara).ellipse((0, 0, grande - 1, grande - 1), fill=255)
     mascara = mascara.resize((TAM_CAPA, TAM_CAPA), Image.LANCZOS)
+    
     saida = img.convert("RGBA")
     saida.putalpha(mascara)
-    return saida
+    return saida, cor_rgba
 
+# Variáveis globais para cache do marquee (evita recriar a imagem do texto a cada frame)
+_cache_marquee_titulo = None
+_cache_marquee_img = None
+_cache_marquee_largura = 0
 
 def renderizar(snap):
+    global _cache_marquee_titulo, _cache_marquee_img, _cache_marquee_largura
+
     img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
-    big = Image.new("RGBA", (960, 960), (0, 0, 0, 0))  # anéis em 2x (suaviza)
-    bd = ImageDraw.Draw(big)
+    d = ImageDraw.Draw(img)
 
-    def arco(raio, larg, ini, fim, cor):
-        if fim > ini:
-            r = raio * 2
-            bd.arc(
-                (480 - r, 480 - r, 480 + r, 480 + r), ini, fim,
-                fill=cor, width=larg * 2,
-            )
-
-    temps = snap["temps"]
-    alarme = False
-    for rotulo, _, limites, ang0 in SENSORES:
-        if rotulo in temps:
-            v = temps[rotulo]
-            frac = min(max(v / 100, 0), 1)
-            arco(205, 6, ang0, ang0 + 50, TRILHA)
-            arco(205, 6, ang0, ang0 + 50 * frac, cor_temp(v, limites))
-            if v >= limites[2]:
-                alarme = True
+    cx, cy = 240, 240          # Seu centro exato
+    raio_anel = (TAM_CAPA // 2) + 18   # Seu raio exato
 
     musica = snap["musica"]
-    vermelho = (255, 70, 70, 255)
+    cor_destaque = snap.get("cor_capa", (30, 215, 96, 255))
+    
+    # 1. Trilha de fundo do anel
+    d.arc(
+        (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
+        0, 360, fill=(255, 255, 255, 35), width=4
+    )
+
     if musica and snap["dur"] > 0:
         pos = snap["pos"]
         if snap["tocando"]:
             pos += time.monotonic() - snap["t_poll"]
         frac = min(max(pos / snap["dur"], 0), 1)
-        ang = int(360 * frac / 3) * 3
-        arco(226, 5, 0, 360, TRILHA)
-        arco(226, 5, -90, -90 + ang, vermelho if alarme else (30, 215, 96, 255))
-    elif alarme:
-        arco(226, 5, 0, 360, vermelho)
-    img.alpha_composite(big.resize((480, 480), Image.LANCZOS))
+        ang_fim = -90 + int(360 * frac)
 
-    d = ImageDraw.Draw(img)
-    for rotulo, _, limites, ang0 in SENSORES:
-        if rotulo in temps:
-            rad = math.radians(ang0 + 25)
-            x = 240 + 170 * math.cos(rad)
-            y = 240 + 170 * math.sin(rad)
-            texto = f"{rotulo} {temps[rotulo]:.0f}{GRAU}"
-            txt(d, x, y, texto, F_SENSOR, cor_temp(temps[rotulo], limites), "mm")
+        # 2. Arco ativo principal da música
+        d.arc(
+            (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
+            -90, ang_fim, fill=cor_destaque, width=4
+        )
 
+    # 3. Desenha a Capa do Álbum
+    capa = snap["capa"]
+    if capa is not None and musica:
+        x_capa = cx - (TAM_CAPA // 2)
+        y_capa = cy - (TAM_CAPA // 2)
+        img.alpha_composite(capa, (x_capa, y_capa))
+
+    # 4. Textos e Rolagem Horizontal Fluida
     if musica:
         titulo, artista = musica
-        capa = snap["capa"]
-        if capa is not None:
-            img.alpha_composite(capa, (240 - TAM_CAPA // 2, 115))
-            y = 280
+        y_texto = cy + raio_anel + 20
+        
+        LARGURA_MAXIMA = 400  # Limite antes de ativar o marquee
+        titulo_str = titulo or ""
+        largura_titulo = d.textlength(titulo_str, font=F_TITULO)
+        
+        if largura_titulo <= LARGURA_MAXIMA:
+            # Se couber, desenha normalmente centralizado
+            txt(d, cx, y_texto, titulo_str, F_TITULO, (255, 255, 255, 255))
         else:
-            y = 205
-        txt(d, 240, y, cortar(d, titulo or "", F_TITULO), F_TITULO,
-            (255, 255, 255, 255))
-        if artista:
-            txt(d, 240, y + 44, cortar(d, artista, F_ARTISTA), F_ARTISTA,
-                (220, 220, 220, 255))
-    return img
+            # Verifica se precisamos gerar a imagem de cache (só é feito se a música mudar)
+            if _cache_marquee_titulo != titulo_str:
+                _cache_marquee_titulo = titulo_str
+                texto_duplicado = titulo_str + "    •    " + titulo_str + "    •    "
+                largura_total_img = int(d.textlength(texto_duplicado, font=F_TITULO)) + 100
+                
+                _cache_marquee_img = Image.new("RGBA", (largura_total_img, 60), (0, 0, 0, 0))
+                d_cache = ImageDraw.Draw(_cache_marquee_img)
+                d_cache.text(
+                    (0, 0), texto_duplicado, font=F_TITULO, fill=(255, 255, 255, 255),
+                    stroke_width=0, stroke_fill=(0, 0, 0, 255)
+                )
+                # Calcula o tamanho exato de um ciclo completo para reiniciar o loop perfeitamente
+                _cache_marquee_largura = int(d.textlength(titulo_str + "    •    ", font=F_TITULO))
 
+            # Velocidade de rolagem (pixels por segundo) - ajuste se quiser mais rápido/lento
+            velocidade = 35.0
+            deslocamento_float = (time.monotonic() * velocidade) % _cache_marquee_largura
+            deslocamento_int = int(deslocamento_float)
+            
+            # Recorta a janela a partir da imagem em cache pré-processada
+            janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
+            
+            x_pos = cx - (LARGURA_MAXIMA // 2)
+            img.alpha_composite(janela, (x_pos, int(y_texto)))
+
+        # Artista mantido na posição correta
+        if artista:
+            txt(d, cx, y_texto + 38, cortar(d, artista, F_ARTISTA), F_ARTISTA, (200, 200, 200, 255))
+            
+    return img
 
 def sessao_usb():
     dev = libusb_package.find(idVendor=0x1CBE, idProduct=0x21)
@@ -202,23 +219,26 @@ def sessao_usb():
 
         for n in (111, 112, 13):
             cmd(n)
+        
         brilho = brilho_para(datetime.datetime.now())
         operations.send_brightness_command(dev, brilho)
         cmd(41)
         operations.clear_image(dev)
         operations.send_frame_rate_command(dev, FPS)
-        log("tela conectada")
+        log("tela conectada - vinil em rotação contínua")
 
         ultimo_check = time.time()
         ultimo_overlay = 0.0
         ultimo_hash = None
         falhas = 0
+
         while not parar.is_set():
             with open(h264, "rb") as fh:
                 while not parar.is_set():
                     data = fh.read(202752)
                     if not data:
-                        break
+                        break  # Fim do ficheiro H.264, reinicia o loop do vídeo (loop infinito)
+                    
                     pacote = build_command_packet_header(121)
                     pacote[8:12] = len(data).to_bytes(4, "big")
                     carga = encrypt_command_packet(pacote) + data
@@ -235,7 +255,7 @@ def sessao_usb():
                         operations.delay(dev, 2)
 
                     agora = time.time()
-                    if agora - ultimo_check >= 5:  # confere o horário
+                    if agora - ultimo_check >= 5:
                         ultimo_check = agora
                         novo = brilho_para(datetime.datetime.now())
                         if novo != brilho:
@@ -246,14 +266,13 @@ def sessao_usb():
                         ultimo_overlay = agora
                         img = renderizar(dict(estado))
                         h = hash(img.tobytes())
-                        if h != ultimo_hash:  # só envia se mudou
+                        if h != ultimo_hash:
                             ultimo_hash = h
                             img.save("overlay.png")
                             operations.send_image(dev, "overlay.png")
         cmd(123)
     finally:
-        usb.util.dispose_resources(dev)
-
+        libusb_package.util.dispose_resources(dev)
 
 def transmitir():
     while not parar.is_set():
@@ -267,38 +286,10 @@ def transmitir():
         parar.wait(ESPERA_RECONEXAO)
 
 
-def percorrer(no):
-    for filho in no.get("Children", []):
-        yield from percorrer(filho)
-    valor = no.get("Value", "")
-    if GRAU + "C" in valor:
-        m = re.search(r"-?\d+(?:[.,]\d+)?", valor)
-        if m:
-            yield no.get("Text", ""), float(m.group().replace(",", "."))
-
-
-def vigiar_sensores():
-    while not parar.is_set():
-        temps = {}
-        try:
-            with urllib.request.urlopen(URL_SENSORES, timeout=2) as r:
-                dados = json.load(r)
-            folhas = list(percorrer(dados))
-            for rotulo, trecho, _, _ in SENSORES:
-                for nome, valor in folhas:
-                    if trecho.lower() in nome.lower():
-                        temps[rotulo] = valor
-                        break
-        except Exception:
-            pass
-        estado["temps"] = temps
-        parar.wait(2)
-
-
 async def ler_capa(info):
     try:
         if info.thumbnail is None:
-            return None
+            return None, None
         fluxo = await info.thumbnail.open_read_async()
         tamanho = fluxo.size
         buf = Buffer(tamanho)
@@ -307,7 +298,7 @@ async def ler_capa(info):
         return preparar_capa(bytes(memoryview(buf)))
     except Exception as exc:
         log(f"capa: {exc}")
-        return None
+        return None, None
 
 
 async def vigiar_spotify():
@@ -327,6 +318,7 @@ async def vigiar_spotify():
             if sessao is None or (ESCONDER_PAUSADO and not tocando):
                 estado["musica"] = None
                 estado["capa"] = None
+                estado["cor_capa"] = (30, 215, 96, 255)
                 chave = None
             else:
                 info = await sessao.try_get_media_properties_async()
@@ -334,9 +326,14 @@ async def vigiar_spotify():
                 if nova != chave:
                     chave, tentativas = nova, 0
                     estado["capa"] = None
+                    estado["cor_capa"] = (30, 215, 96, 255)
+                    
                 if estado["capa"] is None and tentativas < 3:
                     tentativas += 1
-                    estado["capa"] = await ler_capa(info)
+                    capa_img, cor_capa = await ler_capa(info)
+                    if capa_img is not None:
+                        estado["capa"] = capa_img
+                        estado["cor_capa"] = cor_capa
 
                 tl = sessao.get_timeline_properties()
                 dur = (tl.end_time - tl.start_time).total_seconds()
@@ -363,7 +360,6 @@ async def vigiar_spotify():
 def main():
     t = threading.Thread(target=transmitir, daemon=True)
     t.start()
-    threading.Thread(target=vigiar_sensores, daemon=True).start()
     try:
         asyncio.run(vigiar_spotify())
     except KeyboardInterrupt:
@@ -373,4 +369,5 @@ def main():
     log("parado")
 
 
-main()
+if __name__ == "__main__":
+    main()

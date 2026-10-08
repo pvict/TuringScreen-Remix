@@ -210,3 +210,344 @@
 2026-10-08 11:32:41 tela conectada
 2026-10-08 12:12:08 tela conectada
 2026-10-08 12:38:50 tela conectada
+2026-10-08 13:37:54 tela conectada
+2026-10-08 13:41:25 parado
+2026-10-08 13:48:36 tela conectada
+2026-10-08 13:53:15 tela conectada
+2026-10-08 13:53:48 parado
+2026-10-08 13:59:36 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 13:59:36 tentando reconectar em 5s
+2026-10-08 13:59:41 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 13:59:41 tentando reconectar em 5s
+2026-10-08 13:59:46 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 13:59:46 tentando reconectar em 5s
+2026-10-08 13:59:48 parado
+2026-10-08 13:59:53 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 13:59:53 tentando reconectar em 5s
+2026-10-08 14:00:01 tela conectada
+2026-10-08 14:00:01 parado
+2026-10-08 14:00:06 tela conectada
+2026-10-08 14:00:21 parado
+2026-10-08 14:03:06 tela conectada
+2026-10-08 14:03:41 parado
+2026-10-08 14:06:07 tela conectada
+2026-10-08 14:08:15 parado
+2026-10-08 14:08:20 tela conectada
+2026-10-08 14:08:37 parado
+2026-10-08 14:08:42 tela conectada
+2026-10-08 14:12:43 parado
+2026-10-08 14:12:45 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:12:46 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:12:49 tela conectada
+2026-10-08 14:13:06 parado
+2026-10-08 14:13:06 parado
+2026-10-08 14:13:34 tela conectada
+2026-10-08 14:17:41 parado
+2026-10-08 14:17:43 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:17:43 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:17:46 tela conectada
+2026-10-08 14:17:56 parado
+2026-10-08 14:17:56 parado
+2026-10-08 14:19:46 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:19:47 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:19:50 tela conectada
+2026-10-08 14:20:10 parado
+2026-10-08 14:20:10 parado
+2026-10-08 14:20:49 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:20:55 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:20:58 tela conectada
+2026-10-08 14:21:03 parado
+2026-10-08 14:21:03 parado
+2026-10-08 14:23:52 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:23:59 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:24:01 tela conectada
+2026-10-08 14:24:07 parado
+2026-10-08 14:24:07 parado
+2026-10-08 14:27:37 Novo vídeo 'fundo.mp4' detectado! Adaptando para a tela...
+2026-10-08 14:27:45 Vídeo adaptado com sucesso para 480x480 (H.264)!
+2026-10-08 14:27:47 tela conectada
+2026-10-08 14:27:52 parado
+2026-10-08 14:27:53 parado
+2026-10-08 14:33:46 tela conectada e pronta para o stream de vídeo
+2026-10-08 14:33:52 parado
+2026-10-08 14:34:43 tela conectada e pronta para o stream de vídeo
+2026-10-08 14:34:47 parado
+2026-10-08 14:34:59 tela conectada e pronta para o stream de vídeo
+2026-10-08 14:35:05 parado
+2026-10-08 14:35:57 erro: Input file not found: video_tela.mp4
+2026-10-08 14:35:57 tentando reconectar em 5s
+2026-10-08 14:36:02 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:02 tentando reconectar em 5s
+2026-10-08 14:36:07 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:07 tentando reconectar em 5s
+2026-10-08 14:36:12 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:12 tentando reconectar em 5s
+2026-10-08 14:36:17 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:17 tentando reconectar em 5s
+2026-10-08 14:36:19 parado
+2026-10-08 14:36:33 tela conectada e pronta para o stream de vídeo
+2026-10-08 14:36:36 parado
+2026-10-08 14:36:48 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:48 tentando reconectar em 5s
+2026-10-08 14:36:53 erro: Input file not found: video_tela.mp4
+2026-10-08 14:36:53 tentando reconectar em 5s
+2026-10-08 14:37:01 tela conectada (streaming de vídeo nativo + overlay)
+2026-10-08 14:37:08 parado
+2026-10-08 14:38:04 tela conectada (streaming de vídeo nativo + overlay)
+2026-10-08 14:38:57 parado
+2026-10-08 14:39:00 tela conectada (streaming de vídeo nativo)
+2026-10-08 14:39:36 parado
+2026-10-08 14:39:40 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:39:40 erro: name 'cv2' is not defined
+2026-10-08 14:39:40 tentando reconectar em 5s
+2026-10-08 14:39:47 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:39:47 erro: name 'cv2' is not defined
+2026-10-08 14:39:47 tentando reconectar em 5s
+2026-10-08 14:39:50 parado
+2026-10-08 14:40:12 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:40:12 erro: name 'gerar_overlay_imagem' is not defined
+2026-10-08 14:40:12 tentando reconectar em 5s
+2026-10-08 14:40:19 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:40:20 erro: name 'gerar_overlay_imagem' is not defined
+2026-10-08 14:40:20 tentando reconectar em 5s
+2026-10-08 14:40:23 parado
+2026-10-08 14:41:40 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:41:41 erro: 'NoneType' object has no attribute 'size'
+2026-10-08 14:41:41 tentando reconectar em 5s
+2026-10-08 14:41:48 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:41:49 erro: 'NoneType' object has no attribute 'size'
+2026-10-08 14:41:49 tentando reconectar em 5s
+2026-10-08 14:41:50 parado
+2026-10-08 14:42:34 tela conectada (modo OpenCV otimizado)
+2026-10-08 14:43:02 parado
+2026-10-08 14:47:27 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:47:44 parado
+2026-10-08 14:48:26 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:48:37 parado
+2026-10-08 14:48:48 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:51:06 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 14:51:06 tentando reconectar em 5s
+2026-10-08 14:51:11 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 14:51:11 tentando reconectar em 5s
+2026-10-08 14:51:13 parado
+2026-10-08 14:51:17 parado
+2026-10-08 14:51:24 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:51:31 parado
+2026-10-08 14:52:04 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:53:15 parado
+2026-10-08 14:53:37 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:53:45 parado
+2026-10-08 14:53:54 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:54:58 parado
+2026-10-08 14:55:23 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:56:45 parado
+2026-10-08 14:57:06 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:57:13 parado
+2026-10-08 14:57:32 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 14:59:07 parado
+2026-10-08 15:00:38 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:01:37 parado
+2026-10-08 15:02:29 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:03:30 parado
+2026-10-08 15:03:49 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:03:54 parado
+2026-10-08 15:04:12 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:06:40 parado
+2026-10-08 15:07:51 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:08:07 parado
+2026-10-08 15:09:15 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:09:22 parado
+2026-10-08 15:09:51 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:10:04 parado
+2026-10-08 15:11:55 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:12:20 parado
+2026-10-08 15:12:50 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:13:03 parado
+2026-10-08 15:13:27 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:16:37 parado
+2026-10-08 15:16:41 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:17:37 parado
+2026-10-08 15:17:41 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:17:45 parado
+2026-10-08 15:18:33 tela conectada (streaming nativo + overlay em camadas)
+2026-10-08 15:19:40 tela conectada (streaming nativo + overlay minimalista)
+2026-10-08 15:23:16 tela conectada (streaming nativo + overlay minimalista)
+2026-10-08 15:24:13 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:25:29 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:27 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:27 erro: name 'inf' is not defined
+2026-10-08 15:26:27 tentando reconectar em 5s
+2026-10-08 15:26:35 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:35 erro: name 'inf' is not defined
+2026-10-08 15:26:35 tentando reconectar em 5s
+2026-10-08 15:26:43 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:43 erro: name 'inf' is not defined
+2026-10-08 15:26:43 tentando reconectar em 5s
+2026-10-08 15:26:50 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:50 erro: name 'inf' is not defined
+2026-10-08 15:26:50 tentando reconectar em 5s
+2026-10-08 15:26:57 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:26:57 erro: name 'inf' is not defined
+2026-10-08 15:26:57 parado
+2026-10-08 15:27:21 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:28:15 parado
+2026-10-08 15:28:19 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:33:05 parado
+2026-10-08 15:33:09 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:34:00 parado
+2026-10-08 15:34:04 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:35:01 parado
+2026-10-08 15:35:07 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:36:39 parado
+2026-10-08 15:36:44 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:39:01 parado
+2026-10-08 15:39:07 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:39:55 parado
+2026-10-08 15:39:59 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:42:02 parado
+2026-10-08 15:42:09 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:42:25 parado
+2026-10-08 15:42:31 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:45:57 parado
+2026-10-08 15:46:34 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:48:50 parado
+2026-10-08 15:48:55 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:49:03 parado
+2026-10-08 15:49:07 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:49:30 parado
+2026-10-08 15:49:34 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:50:10 parado
+2026-10-08 15:50:13 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:50:26 parado
+2026-10-08 15:50:35 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:51:14 parado
+2026-10-08 15:51:18 tela conectada (streaming nativo + anel externo)
+2026-10-08 15:51:55 parado
+2026-10-08 15:51:59 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:40:45 parado
+2026-10-08 16:41:08 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:43:14 parado
+2026-10-08 16:43:18 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:43:47 parado
+2026-10-08 16:43:57 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:45:30 parado
+2026-10-08 16:45:34 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:46:39 parado
+2026-10-08 16:46:43 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:47:45 parado
+2026-10-08 16:47:49 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:50:07 parado
+2026-10-08 16:50:11 tela conectada (streaming nativo + anel externo)
+2026-10-08 16:50:58 parado
+2026-10-08 16:51:13 tela conectada (streaming nativo + anel externo)
+2026-10-08 17:13:22 parado
+2026-10-08 17:30:17 tela conectada (streaming nativo + anel externo)
+2026-10-08 17:33:24 parado
+2026-10-08 17:39:03 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:03 tentando reconectar em 5s
+2026-10-08 17:39:08 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:08 tentando reconectar em 5s
+2026-10-08 17:39:13 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:13 tentando reconectar em 5s
+2026-10-08 17:39:18 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:18 tentando reconectar em 5s
+2026-10-08 17:39:23 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:23 tentando reconectar em 5s
+2026-10-08 17:39:28 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:28 tentando reconectar em 5s
+2026-10-08 17:39:33 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:33 tentando reconectar em 5s
+2026-10-08 17:39:38 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:38 tentando reconectar em 5s
+2026-10-08 17:39:43 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:43 tentando reconectar em 5s
+2026-10-08 17:39:48 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:48 tentando reconectar em 5s
+2026-10-08 17:39:53 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:53 tentando reconectar em 5s
+2026-10-08 17:39:58 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 17:39:58 tentando reconectar em 5s
+2026-10-08 17:40:06 tela conectada (streaming nativo + anel externo)
+2026-10-08 17:41:23 parado
+2026-10-08 17:54:34 tela conectada (streaming nativo + anel externo)
+2026-10-08 17:55:24 tela conectada (streaming nativo + anel externo)
+2026-10-08 17:59:49 tela conectada
+2026-10-08 18:01:52 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:01:52 tentando reconectar em 5s
+2026-10-08 18:01:57 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:01:57 tentando reconectar em 5s
+2026-10-08 18:02:02 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:02 tentando reconectar em 5s
+2026-10-08 18:02:07 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:07 tentando reconectar em 5s
+2026-10-08 18:02:12 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:12 tentando reconectar em 5s
+2026-10-08 18:02:17 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:17 tentando reconectar em 5s
+2026-10-08 18:02:22 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:22 tentando reconectar em 5s
+2026-10-08 18:02:23 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:23 tentando reconectar em 5s
+2026-10-08 18:02:27 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:27 tentando reconectar em 5s
+2026-10-08 18:02:32 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:32 tentando reconectar em 5s
+2026-10-08 18:02:37 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:37 tentando reconectar em 5s
+2026-10-08 18:02:42 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:42 tentando reconectar em 5s
+2026-10-08 18:02:47 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:47 tentando reconectar em 5s
+2026-10-08 18:02:52 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:52 tentando reconectar em 5s
+2026-10-08 18:02:57 erro: [Errno 13] Access denied (insufficient permissions)
+2026-10-08 18:02:57 tentando reconectar em 5s
+2026-10-08 18:03:44 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:07:33 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:08:57 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:09:16 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:10:16 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:12:04 parado
+2026-10-08 18:12:08 tela conectada ao player de vinil
+2026-10-08 18:12:08 erro: name 'cv2' is not defined
+2026-10-08 18:12:08 tentando reconectar em 5s
+2026-10-08 18:12:16 tela conectada ao player de vinil
+2026-10-08 18:12:16 erro: name 'cv2' is not defined
+2026-10-08 18:12:16 tentando reconectar em 5s
+2026-10-08 18:12:20 parado
+2026-10-08 18:12:26 tela conectada ao player de vinil
+2026-10-08 18:12:26 erro: name 'desenhar_sobre_quadro' is not defined
+2026-10-08 18:12:26 tentando reconectar em 5s
+2026-10-08 18:12:34 tela conectada ao player de vinil
+2026-10-08 18:12:34 erro: name 'desenhar_sobre_quadro' is not defined
+2026-10-08 18:12:34 tentando reconectar em 5s
+2026-10-08 18:12:38 parado
+2026-10-08 18:13:23 tela conectada ao player de vinil
+2026-10-08 18:13:39 parado
+2026-10-08 18:13:51 tela conectada (streaming nativo + anel externo)
+2026-10-08 18:20:04 parado
+2026-10-08 18:20:08 tela conectada
+2026-10-08 18:21:13 parado
+2026-10-08 18:21:17 tela conectada
+2026-10-08 18:22:25 parado
+2026-10-08 18:22:34 Música pausada: parando vídeo e mostrando vinil estático
+2026-10-08 18:22:35 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:22:40 erro: cannot access local variable 'brilho' where it is not associated with a value
+2026-10-08 18:22:40 tentando reconectar em 5s
+2026-10-08 18:22:45 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:22:50 erro: cannot access local variable 'brilho' where it is not associated with a value
+2026-10-08 18:22:50 tentando reconectar em 5s
+2026-10-08 18:22:55 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:23:00 erro: cannot access local variable 'brilho' where it is not associated with a value
+2026-10-08 18:23:00 tentando reconectar em 5s
+2026-10-08 18:23:05 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:23:10 erro: cannot access local variable 'brilho' where it is not associated with a value
+2026-10-08 18:23:10 tentando reconectar em 5s
+2026-10-08 18:23:15 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:23:20 erro: cannot access local variable 'brilho' where it is not associated with a value
+2026-10-08 18:23:20 tentando reconectar em 5s
+2026-10-08 18:23:20 parado
+2026-10-08 18:23:54 Música pausada: parando vídeo e mostrando vinil estático
+2026-10-08 18:23:55 Música a tocar: iniciando transmissão do vídeo H.264
+2026-10-08 18:25:10 parado
+2026-10-08 18:25:14 tela conectada - vinil em rotação contínua

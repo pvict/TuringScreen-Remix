@@ -1,0 +1,68 @@
+def sessao_usb():
+    dev = libusb_package.find(idVendor=0x1CBE, idProduct=0x21)
+    if dev is None:
+        raise RuntimeError("tela não encontrada")
+    try:
+        dev.set_configuration()
+        h264 = operations.extract_h264_from_mp4(ARQUIVO)
+
+        def cmd(n):
+            pacote = encrypt_command_packet(build_command_packet_header(n))
+            return write_to_device(dev, pacote)
+
+        for n in (111, 112, 13):
+            cmd(n)
+        
+        brilho = brilho_para(datetime.datetime.now())
+        operations.send_brightness_command(dev, brilho)
+        cmd(41)
+        operations.clear_image(dev)
+        operations.send_frame_rate_command(dev, FPS)
+        log("tela conectada - vinil em rotação contínua")
+
+        ultimo_check = time.time()
+        ultimo_overlay = 0.0
+        ultimo_hash = None
+        falhas = 0
+
+        while not parar.is_set():
+            with open(h264, "rb") as fh:
+                while not parar.is_set():
+                    data = fh.read(202752)
+                    if not data:
+                        break  # Fim do ficheiro H.264, reinicia o loop do vídeo (loop infinito)
+                    
+                    pacote = build_command_packet_header(121)
+                    pacote[8:12] = len(data).to_bytes(4, "big")
+                    carga = encrypt_command_packet(pacote) + data
+                    resp = write_to_device(dev, carga)
+                    time.sleep(0.03)
+
+                    if resp is None:
+                        falhas += 1
+                        if falhas >= FALHAS_MAX:
+                            raise RuntimeError("tela sem resposta")
+                    else:
+                        falhas = 0
+                    if resp is None or len(resp) < 9 or resp[8] <= 3:
+                        operations.delay(dev, 2)
+
+                    agora = time.time()
+                    if agora - ultimo_check >= 5:
+                        ultimo_check = agora
+                        novo = brilho_para(datetime.datetime.now())
+                        if novo != brilho:
+                            brilho = novo
+                            operations.send_brightness_command(dev, brilho)
+
+                    if agora - ultimo_overlay >= ATUALIZA_A_CADA:
+                        ultimo_overlay = agora
+                        img = renderizar(dict(estado))
+                        h = hash(img.tobytes())
+                        if h != ultimo_hash:
+                            ultimo_hash = h
+                            img.save("overlay.png")
+                            operations.send_image(dev, "overlay.png")
+        cmd(123)
+    finally:
+        libusb_package.util.dispose_resources(dev)

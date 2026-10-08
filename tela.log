@@ -551,3 +551,182 @@
 2026-10-08 18:23:55 Música a tocar: iniciando transmissão do vídeo H.264
 2026-10-08 18:25:10 parado
 2026-10-08 18:25:14 tela conectada - vinil em rotação contínua
+2026-10-08 18:31:42 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:31:43 parado
+2026-10-08 18:31:47 tela conectada - vinil em rotação contínua
+2026-10-08 18:32:55 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:32:55 parado
+2026-10-08 18:33:01 tela conectada - vinil em rotação contínua
+2026-10-08 18:33:14 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:33:14 parado
+2026-10-08 18:33:18 tela conectada - vinil em rotação contínua
+2026-10-08 18:33:18 Música pausada: acionando travão analógico...
+2026-10-08 18:33:36 Música a tocar: soltando o travão e retomando o vinil
+2026-10-08 18:35:09 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:35:09 parado
+2026-10-08 18:35:13 tela conectada - vinil em rotação contínua
+2026-10-08 18:36:15 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:36:15 parado
+2026-10-08 18:36:19 tela conectada - vinil em rotação contínua
+2026-10-08 18:36:42 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:36:42 parado
+2026-10-08 18:36:54 tela conectada - vinil em rotação contínua
+2026-10-08 18:40:05 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:40:05 parado
+2026-10-08 18:40:09 tela conectada - vinil em rotação contínua
+2026-10-08 18:40:15 Música pausada: acionando travão analógico...
+2026-10-08 18:40:20 Música a tocar: soltando o travão e retomando o vinil
+2026-10-08 18:40:25 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:40:25 parado
+2026-10-08 18:41:32 tela conectada - vinil em rotação contínua
+2026-10-08 18:41:38 Música pausada: exibindo vinil estático
+2026-10-08 18:41:41 Música a tocar: retomando o vinil
+2026-10-08 18:42:35 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:42:35 parado
+2026-10-08 18:42:39 tela conectada - vinil em rotação contínua
+2026-10-08 18:42:42 Música pausada: exibindo vinil estático
+2026-10-08 18:42:44 Música a tocar: retomando o vinil instantaneamente
+2026-10-08 18:43:47 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:43:47 parado
+2026-10-08 18:43:54 tela conectada - vinil em rotação contínua
+2026-10-08 18:43:58 Música pausada: exibindo vinil estático
+2026-10-08 18:44:04 Música a tocar: retomando o vinil instantaneamente
+2026-10-08 18:45:20 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:45:20 parado
+2026-10-08 18:45:24 tela conectada - vinil em rotação contínua
+2026-10-08 18:45:27 Música pausada: exibindo vinil estático
+2026-10-08 18:45:31 Música a tocar: retomando o vinil instantaneamente
+2026-10-08 18:47:38 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:47:38 parado
+2026-10-08 18:47:52 tela conectada - vinil em rotação contínua
+2026-10-08 18:48:02 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:48:02 parado
+2026-10-08 18:48:06 tela conectada - vinil em rotação contínua
+2026-10-08 18:48:18 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:48:18 parado
+2026-10-08 18:48:22 tela conectada - vinil em rotação contínua
+2026-10-08 18:48:34 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:48:34 parado
+2026-10-08 18:48:38 tela conectada - vinil em rotação contínua
+2026-10-08 18:48:54 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:48:54 parado
+2026-10-08 18:48:58 tela conectada - vinil em rotação contínua
+2026-10-08 18:49:14 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:49:14 parado
+2026-10-08 18:49:18 tela conectada - vinil em rotação contínua
+2026-10-08 18:49:24 Música pausada: exibindo vinil estático
+2026-10-08 18:49:31 Música a tocar: retomando o vinil instantaneamente
+2026-10-08 18:49:49 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:49:49 parado
+2026-10-08 18:49:53 tela conectada - vinil em rotação contínua
+2026-10-08 18:50:09 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:50:09 parado
+2026-10-08 18:50:12 tela conectada - vinil em rotação contínua
+2026-10-08 18:55:04 Música pausada: exibindo vinil estático
+2026-10-08 18:55:22 Música a tocar: retomando o vinil instantaneamente
+2026-10-08 18:55:22 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:55:22 parado
+2026-10-08 18:55:26 tela conectada - vinil em rotação contínua permanente
+2026-10-08 18:57:11 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:57:11 parado
+2026-10-08 18:57:15 tela conectada - vinil em rotação contínua permanente
+2026-10-08 18:58:18 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:58:18 parado
+2026-10-08 18:58:21 tela conectada - vinil em rotação contínua permanente
+2026-10-08 18:59:27 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 18:59:27 parado
+2026-10-08 18:59:30 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:00:11 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:00:11 parado
+2026-10-08 19:00:14 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:00:52 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:00:52 parado
+2026-10-08 19:00:56 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:01:11 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:01:11 parado
+2026-10-08 19:01:15 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:02:21 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:02:21 parado
+2026-10-08 19:02:25 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:02:52 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:02:52 parado
+2026-10-08 19:02:56 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:04:13 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:04:13 parado
+2026-10-08 19:04:17 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:04:17 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:04:17 tentando reconectar em 5s
+2026-10-08 19:04:22 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:04:22 tentando reconectar em 5s
+2026-10-08 19:04:27 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:04:27 tentando reconectar em 5s
+2026-10-08 19:04:32 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:04:32 tentando reconectar em 5s
+2026-10-08 19:04:34 parado
+2026-10-08 19:04:37 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:05:51 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:05:51 parado
+2026-10-08 19:05:55 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:06:14 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:06:14 parado
+2026-10-08 19:06:20 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:06:46 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:06:46 parado
+2026-10-08 19:06:49 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:07:40 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:07:40 parado
+2026-10-08 19:07:44 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:08:00 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:08:00 parado
+2026-10-08 19:08:05 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:08:22 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:08:22 parado
+2026-10-08 19:08:26 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:08:35 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:08:35 parado
+2026-10-08 19:08:39 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:08:58 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:08:58 parado
+2026-10-08 19:09:02 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:11:40 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:11:40 parado
+2026-10-08 19:11:45 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:13:17 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:13:17 parado
+2026-10-08 19:13:21 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:15:24 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:15:24 parado
+2026-10-08 19:15:28 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:16:32 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:16:32 parado
+2026-10-08 19:16:36 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:17:57 erro: module 'libusb_package' has no attribute 'util'
+2026-10-08 19:17:57 parado
+2026-10-08 19:18:00 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:20:58 parado
+2026-10-08 19:21:00 clima inicial erro: name 'requests' is not defined
+2026-10-08 19:21:02 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:22:28 parado
+2026-10-08 19:22:49 clima inicial erro: name 'requests' is not defined
+2026-10-08 19:22:51 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:23:22 parado
+2026-10-08 19:23:24 Clima inicial carregado: 23°C
+2026-10-08 19:23:26 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:28:38 parado
+2026-10-08 19:28:40 Clima inicial carregado: 23°C
+2026-10-08 19:28:42 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:29:11 parado
+2026-10-08 19:29:14 Clima inicial carregado: 23°C
+2026-10-08 19:29:15 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:29:57 parado
+2026-10-08 19:29:59 Clima inicial carregado: 23°C
+2026-10-08 19:30:00 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:30:29 parado
+2026-10-08 19:30:31 Clima inicial carregado: 23°C
+2026-10-08 19:30:33 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:31:16 parado
+2026-10-08 19:31:18 Clima inicial carregado: 23°C
+2026-10-08 19:31:20 tela conectada - vinil em rotação contínua permanente
+2026-10-08 19:31:29 parado
+2026-10-08 19:31:31 Clima inicial carregado: 23°C
+2026-10-08 19:31:33 tela conectada - vinil em rotação contínua permanente

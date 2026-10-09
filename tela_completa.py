@@ -9,6 +9,11 @@ import time
 import sys
 import contextlib
 
+# --- CORREÇÃO CRÍTICA PARA O WINRT (SPOTIFY) ---
+sys.coinit_flags = 0  # 0 = COINIT_MULTITHREADED
+import comtypes
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
 import libusb_package
 import usb.util
 from PIL import Image, ImageDraw, ImageFont
@@ -25,12 +30,10 @@ from turingscreencli.transport import (
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# silencia o aviso repetido da CLI (ela espera a tela 8,8 de 480x1920); erros continuam aparecendo
 logging.getLogger("turingscreencli").setLevel(logging.ERROR)
 logging.getLogger("usb").setLevel(logging.CRITICAL)
 logging.getLogger("pyusb").setLevel(logging.CRITICAL)
 
-# Função auxiliar para silenciar a consola temporariamente
 @contextlib.contextmanager
 def silenciar_saida():
     with open(os.devnull, "w") as devnull:
@@ -41,21 +44,22 @@ def silenciar_saida():
         finally:
             sys.stderr = old_stderr
 
-ARQUIVO_MUSICA = "video_tela.mp4"       # Vídeo com o vinil/efeitos quando toca música
-ARQUIVO_BACKGROUND = "video_fundo.mp4"  # Vídeo de fundo em loop quando nada está a tocar
+ARQUIVO_MUSICA = "video_tela.mp4"
+ARQUIVO_BACKGROUND = "video_fundo.mp4"
 FPS = 30
-LARGURA = 300             # largura máxima do texto
-TAM_CAPA = 240            # diâmetro da capa do álbum
+LARGURA = 300
+TAM_CAPA = 240
 ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
-ATUALIZA_A_CADA = 0.15       # atualiza o anel/progresso a cada 0.15 segundo
+ATUALIZA_A_CADA = 0.03       # Atualiza a imagem a ~33 quadros por segundo
 
 parar = threading.Event()
 estado = {
     "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
     "cor_viva": (30, 215, 96, 255),
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
+    "volume": None, "volume_exibir_ate": 0.0,
 }
 
 
@@ -69,13 +73,13 @@ def log(msg):
         pass
 
 
-BRILHO_DIA = 100  # brilho (0 a 100) fora da noite e da madrugada
+BRILHO_DIA = 100
 
 
 def brilho_para(agora):
     h = agora.hour
     if 1 <= h < 7:
-        return 0
+        return 30
     if h >= 18 or h < 1:
         return 60
     return BRILHO_DIA
@@ -113,7 +117,6 @@ def txt(d, x, y, texto, f, cor, ancora="mt"):
 
 
 def cor_viva_da_capa(img, fallback):
-    """Tom mais marcante e saturado da capa (a média costuma sair acinzentada)."""
     pequena = img.resize((64, 64), Image.BILINEAR)
     paleta = getattr(Image, "Palette", Image).ADAPTIVE
     pequena = pequena.convert("P", palette=paleta, colors=8)
@@ -152,18 +155,57 @@ def preparar_capa(dados):
     saida.putalpha(mascara)
     return saida, cor_rgba, cor_viva
 
-
+_cache_marquee_pos = 0.0
 _cache_marquee_titulo = None
 _cache_marquee_img = None
 _cache_marquee_largura = 0
 
 _cache_halo_cor = None
 _cache_halo_img = None
-    
+
+_cache_vol_anim = None
+_cache_vol_opacidade = 0.0
+
+
+def _laco_volume():
+    """Lê o volume do Windows em background de forma ultra-rápida e responsiva."""
+    comtypes.CoInitialize()
+    try:
+        dispositivo = AudioUtilities.GetSpeakers()
+        
+        try:
+            volume_interface = dispositivo.EndpointVolume.QueryInterface(IAudioEndpointVolume)
+        except AttributeError:
+            from ctypes import cast, POINTER
+            interface = dispositivo.Activate(IAudioEndpointVolume._iid_, comtypes.CLSCTX_ALL, None)
+            volume_interface = cast(interface, POINTER(IAudioEndpointVolume))
+
+        while not parar.is_set():
+            try:
+                # Leitura direta do volume atual do sistema
+                vol = int(round(volume_interface.GetMasterVolumeLevelScalar() * 100))
+                vol_atual = estado.get("volume")
+                
+                if vol_atual is None:
+                    estado["volume"] = vol
+                elif vol_atual != vol:
+                    estado["volume"] = vol
+                    # Mantém o HUD visível por 3 segundos após a última alteração
+                    estado["volume_exibir_ate"] = time.time() + 3.0
+            except Exception as e:
+                log(f"erro lendo volume: {e}")
+            
+            # Reduzido de 0.02 para 0.01 (10ms) para capturar instantaneamente o comando do teclado
+            parar.wait(0.01)
+    finally:
+        comtypes.CoUninitialize()
+
 
 def renderizar(snap):
+    global _cache_marquee_pos
     global _cache_marquee_titulo, _cache_marquee_img, _cache_marquee_largura
-    global _cache_halo_cor, _cache_halo_img  # <--- Adicionar aqui
+    global _cache_halo_cor, _cache_halo_img
+    global _cache_vol_anim, _cache_vol_opacidade
 
     img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -171,16 +213,14 @@ def renderizar(snap):
     cx, cy = 240, 240          
     raio_anel = (TAM_CAPA // 2) + 18   
 
-    musica = snap["musica"]
+    musica = snap.get("musica")
     cor_destaque = snap.get("cor_viva") or snap.get("cor_capa", (30, 215, 96, 255))
     
-    # --- HALO DE LUZ DINÂMICO (COM CACHE) ---
+    # --- HALO DE LUZ DINÂMICO ---
     if musica and cor_destaque:
-        # Se a cor de destaque mudou (nova música), recalcula o blur UMA ÚNICA VEZ
         if _cache_halo_cor != cor_destaque:
             _cache_halo_cor = cor_destaque
             
-            # Gera a camada pequena para o blur otimizado (120x120)
             camada_halo = Image.new("RGBA", (120, 120), (0, 0, 0, 0))
             d_halo = ImageDraw.Draw(camada_halo)
             
@@ -194,42 +234,38 @@ def renderizar(snap):
             )
             
             from PIL import ImageFilter
-            # Aplica o blur apenas 1 vez por música
             camada_halo = camada_halo.filter(ImageFilter.GaussianBlur(12))
-            
-            # Guarda a imagem final desfocada no cache
             _cache_halo_img = camada_halo.resize((480, 480), Image.BILINEAR)
 
-        # Reutiliza instantaneamente a imagem desfocada sem gastar CPU
         if _cache_halo_img is not None:
             img = Image.alpha_composite(img, _cache_halo_img)
             d = ImageDraw.Draw(img)
     else:
-        # Reseta o cache se não estiver a tocar nada
         _cache_halo_cor = None
         _cache_halo_img = None
 
-    # 1. Trilha de fundo do anel
-    d.arc(
-        (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
-        0, 360, fill=(255, 255, 255, 35), width=4
-    )
-
-    if musica and snap["dur"] > 0:
-        pos = snap["pos"]
-        if snap["tocando"]:
-            pos += time.monotonic() - snap["t_poll"]
-        frac = min(max(pos / snap["dur"], 0), 1)
-        ang_fim = -90 + int(360 * frac)
-
-        # 2. Arco ativo principal
+    # 1. Trilha de fundo do anel e progresso (Apenas desenha se houver música ativa)
+    if musica:
         d.arc(
             (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
-            -90, ang_fim, fill=cor_destaque, width=4
+            0, 360, fill=(255, 255, 255, 35), width=4
         )
 
+        if snap.get("dur", 0) > 0:
+            pos = snap["pos"]
+            if snap["tocando"]:
+                pos += time.monotonic() - snap["t_poll"]
+            frac = min(max(pos / snap["dur"], 0), 1)
+            ang_fim = -90 + int(360 * frac)
+
+            # 2. Arco ativo principal
+            d.arc(
+                (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
+                -90, ang_fim, fill=cor_destaque, width=4
+            )
+
     # 3. Capa do Álbum
-    capa = snap["capa"]
+    capa = snap.get("capa")
     if capa is not None and musica:
         x_capa = cx - (TAM_CAPA // 2)
         y_capa = cy - (TAM_CAPA // 2)
@@ -261,22 +297,112 @@ def renderizar(snap):
                 _cache_marquee_largura = int(d.textlength(titulo_str + "    •    ", font=F_TITULO))
 
             velocidade = 35.0
-            deslocamento_float = (time.monotonic() * velocidade) % _cache_marquee_largura
-            deslocamento_int = int(deslocamento_float)
+            # Usa diretamente o tempo atual (time.monotonic()) para calcular o deslocamento contínuo em alta precisão
+            deslocamento_int = int((time.monotonic() * velocidade) % _cache_marquee_largura)
             
             janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
             x_pos = cx - (LARGURA_MAXIMA // 2)
             img.alpha_composite(janela, (x_pos, int(y_texto)))
-
+            
         if artista:
             txt(d, cx, y_texto + 35, cortar(d, artista, F_ARTISTA), F_ARTISTA, (200, 200, 200, 255))
 
     raio_tela = 239
-    cor_aro_externo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 40)
+    # Se houver música usa a cor viva da capa com transparência; se não, fica apagado/neutro
+    if musica and cor_destaque:
+        cor_aro_externo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 40)
+    else:
+        cor_aro_externo = (255, 255, 255, 10)
+        
     d.arc(
         (cx - raio_tela, cy - raio_tela, cx + raio_tela, cy + raio_tela),
         0, 360, fill=cor_aro_externo, width=5
     )
+
+# 5. Overlay de Volume
+    vol_real = snap.get("volume")
+    exibir_ate = snap.get("volume_exibir_ate", 0)
+    
+    if _cache_vol_anim is None and vol_real is not None:
+        _cache_vol_anim = float(vol_real)
+        
+    if vol_real is not None:
+        if vol_real is not None:
+            # Aumentamos a velocidade de transição de 0.4 para 0.8 para o indicador acompanhar o dedo instantaneamente
+            _cache_vol_anim += (vol_real - _cache_vol_anim) * 0.8
+        
+        agora = time.time()
+        
+        if agora < exibir_ate:
+            import math
+            from PIL import ImageFilter
+            
+            opac = 255
+            layer_hud = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
+            d_hud = ImageDraw.Draw(layer_hud)
+            
+            raio_vol = 175         
+            tamanho_tick = 12      
+            espessura_tick = 3     
+            num_ticks = 46         
+            
+            angulo_inicio = 140
+            angulo_fim = 400
+            
+            vol_percentual = _cache_vol_anim / 100.0
+            
+            cor_ativa = (255, 255, 255, opac)
+            if cor_destaque:
+                cor_ativa = (cor_destaque[0], cor_destaque[1], cor_destaque[2], opac)
+                
+            cor_inativa = (80, 80, 80, 100)
+            
+            # --- DESENHO DOS TICKS PRINCIPAIS ---
+            for i in range(num_ticks):
+                frac = i / (num_ticks - 1)
+                ang_deg = angulo_inicio + (angulo_fim - angulo_inicio) * frac
+                ang_rad = math.radians(ang_deg)
+                
+                x_in = cx + (raio_vol - tamanho_tick / 2) * math.cos(ang_rad)
+                y_in = cy + (raio_vol - tamanho_tick / 2) * math.sin(ang_rad)
+                x_out = cx + (raio_vol + tamanho_tick / 2) * math.cos(ang_rad)
+                y_out = cy + (raio_vol + tamanho_tick / 2) * math.sin(ang_rad)
+                
+                cor_tick = cor_ativa if frac <= vol_percentual else cor_inativa
+                d_hud.line([(x_in, y_in), (x_out, y_out)], fill=cor_tick, width=espessura_tick)
+            
+            # --- EFEITO DE GLOW OTIMIZADO (ALTA VISIBILIDADE & ZERO LAG) ---
+            # Criamos uma camada miniatura (120x120, um quarto do tamanho) para o desfoque voar no processamento
+            layer_glow_mini = Image.new("RGBA", (120, 120), (0, 0, 0, 0))
+            d_glow_mini = ImageDraw.Draw(layer_glow_mini)
+            
+            cor_glow = (cor_ativa[0], cor_ativa[1], cor_ativa[2], 255) if cor_destaque else (255, 255, 255, 255)
+            
+            raio_vol_mini = raio_vol / 4.0
+            tamanho_tick_mini = tamanho_tick / 4.0
+            espessura_tick_mini = max(1, espessura_tick / 4.0)
+            cx_p, cy_p = 60, 60
+            
+            for i in range(num_ticks):
+                frac = i / (num_ticks - 1)
+                if frac <= vol_percentual:
+                    ang_deg = angulo_inicio + (angulo_fim - angulo_inicio) * frac
+                    ang_rad = math.radians(ang_deg)
+                    
+                    x_in = cx_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.cos(ang_rad)
+                    y_in = cy_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.sin(ang_rad)
+                    x_out = cx_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.cos(ang_rad)
+                    y_out = cy_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.sin(ang_rad)
+                    
+                    d_glow_mini.line([(x_in, y_in), (x_out, y_out)], fill=cor_glow, width=int(espessura_tick_mini + 2))
+            
+            # Desfoque super rápido numa imagem pequena e expansão suave para o tamanho total (480x480)
+            layer_glow_mini = layer_glow_mini.filter(ImageFilter.GaussianBlur(4))
+            layer_glow = layer_glow_mini.resize((480, 480), Image.BILINEAR)
+            
+            # Compõe o glow expansivo e intenso por trás dos ticks nítidos
+            img = Image.alpha_composite(img, layer_glow)
+            img = Image.alpha_composite(img, layer_hud)
             
     return img
 
@@ -319,7 +445,6 @@ def sessao_usb():
                 time.sleep(0.05)
             except Exception:
                 pass
-        # --- FIM DO SILENCIAMENTO ---
         
         log(f"tela conectada - brilho inicial: {brilho}%")
 
@@ -328,9 +453,12 @@ def sessao_usb():
         ultimo_hash = None
         falhas = 0
 
+        # CONTADOR DE AQUECIMENTO DO VÍDEO AO DESPAUSAR
+        frames_aquecimento = 0
+
         fh_musica = open(h264_musica, "rb")
         fh_fundo = open(h264_fundo, "rb")
-        tinha_midia = estado["musica"] is not None
+        tinha_midia = estado.get("musica") is not None
         
         try:
             while not parar.is_set():
@@ -343,10 +471,12 @@ def sessao_usb():
                         operations.send_brightness_command(dev, brilho)
                         log(f"Brilho alterado para: {brilho}%")
 
-                tem_midia = estado["musica"] is not None
+                tem_midia = estado.get("musica") is not None
                 if tem_midia != tinha_midia:
                     tinha_midia = tem_midia
                     (fh_musica if tem_midia else fh_fundo).seek(0)
+                    if tem_midia:
+                        frames_aquecimento = 1  # Ignora a capa nos primeiros 4 quadros (~120ms) para o vídeo arrancar limpo    
                 fh_ativo = fh_musica if tem_midia else fh_fundo
                 
                 data = fh_ativo.read(202752)
@@ -381,16 +511,19 @@ def sessao_usb():
                 if agora - ultimo_overlay >= ATUALIZA_A_CADA:
                     ultimo_overlay = agora
                     
-                    if tem_midia:
+                    if frames_aquecimento > 0:
+                        frames_aquecimento -= 1
+                        # Envia apenas o vídeo puro (sem renderizar capa, arcos ou texto por cima)
+                        img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
+                    elif tem_midia or _cache_vol_opacidade > 0:
                         img = renderizar(dict(estado))
                     else:
                         img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
 
-                    h = hash(img.tobytes())
-                    if h != ultimo_hash:
-                        ultimo_hash = h
-                        img.save("overlay.png")
-                        operations.send_image(dev, "overlay.png")
+                    # Envia diretamente o frame contínuo para garantir a fluidez do letreiro
+                    img.save("overlay.png")
+                    operations.send_image(dev, "overlay.png")
+
         finally:
             fh_musica.close()
             fh_fundo.close()
@@ -438,7 +571,6 @@ async def vigiar_spotify():
             sessao = None
             sessoes = list(mgr.get_sessions())
             
-            # Só o Spotify é considerado: procura a sessão dele a tocar
             for s in sessoes:
                 app_id = s.source_app_user_model_id.lower()
                 if "spotify" in app_id:
@@ -447,7 +579,6 @@ async def vigiar_spotify():
                         sessao = s
                         break
             
-            # Se o Spotify estiver pausado e ESCONDER_PAUSADO for False, mostra mesmo assim
             if sessao is None and not ESCONDER_PAUSADO:
                 for s in sessoes:
                     if "spotify" in s.source_app_user_model_id.lower():
@@ -469,21 +600,18 @@ async def vigiar_spotify():
                 info = await sessao.try_get_media_properties_async()
                 nova = (info.title, info.artist)
                 
-                # Se mudou de música, atualiza o título/artista mas NÃO apaga a capa antiga de imediato!
                 if nova != chave:
                     chave = nova
                     tentativas = 0
                     precisa_carregar_capa = True
                 else:
-                    precisa_carregar_capa = estado["capa"] is None
+                    precisa_carregar_capa = estado.get("capa") is None
 
                 if precisa_carregar_capa and tentativas < 2:
                     tentativas += 1
-                    # Reduzido de 0.2 para 0.08 -> Carrega a capa sem esperar tanto
                     await asyncio.sleep(0.08)
                     capa_img, cor_capa, cor_viva = await ler_capa(info)
                     
-                    # Só substitui a imagem e as cores quando a nova capa estiver 100% pronta!
                     if capa_img is not None:
                         estado["capa"] = capa_img
                         estado["cor_capa"] = cor_capa
@@ -510,7 +638,7 @@ async def vigiar_spotify():
                 ultimo_erro = str(exc)
                 log(f"spotify/midia: {exc}")
 
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(0.15)
 
 
 async def main_async():
@@ -523,8 +651,13 @@ def main():
         leds_openrgb.iniciar(estado, brilho_para, parar, log)
     except ImportError as exc:
         log(f"LEDs desligados (openrgb-python não instalado): {exc}")
+    
+    t_vol = threading.Thread(target=_laco_volume, daemon=True)
+    t_vol.start()
+
     t = threading.Thread(target=transmitir, daemon=True)
     t.start()
+    
     try:
         asyncio.run(main_async())
     except KeyboardInterrupt:

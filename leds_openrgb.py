@@ -20,6 +20,8 @@ import math
 from openrgb import OpenRGBClient
 from openrgb.utils import RGBColor
 
+_ultima_cor_debug = None
+
 HOST = "127.0.0.1"
 PORTA = 6742
 DISPOSITIVOS = ["ASRock"]       # trechos do nome dos dispositivos; None = todos
@@ -36,31 +38,65 @@ LIMITE_CINZA = 0.08              # Se não for realmente cinza/branco, força to
 
 def realcar(cor):
     """Preserva a profundidade exata dos tons (como azul-marinho ou vermelho-escuro) sem clarear demais os LEDs."""
+    global _ultima_cor_debug
     r, g, b = cor[0], cor[1], cor[2]
+
+    # --- REGISTO DE DEPURAÇÃO (Apenas imprime se a cor mudar) ---
+    if cor != _ultima_cor_debug:
+        print(f"[DEBUG CORES] Original lido -> R: {r}, G: {g}, B: {b}")
+        _ultima_cor_debug = cor
     
-    # 1. Se o VERMELHO for dominante
-    if r > g and r > b:
-        b = min(b, int(r * 0.35))
-        g = min(g, int(r * 0.45))
-        fator_brilho = 235.0 / max(r, 1)
-        return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
-
-    # 2. Se o AZUL for dominante (como nesta capa da Lauana Prado)
-    if b > r and b > g:
-        # Limita Verde e Vermelho a no máximo 40% do Azul para não virar ciano/azul-claro
-        r = min(r, int(b * 0.40))
-        g = min(g, int(b * 0.40))
+    # --- TRATAMENTO PARA TONS CIANO / AZUL-ESVERDEADO ESCURO ---
+    # Se o Verde e o Azul estão altos e próximos, mas o vermelho é menor (evita o ciano estourado)
+    if abs(g - b) < 15 and g > 40 and b > 40 and r < g:
+        g_mod = int(g * 0.20)
+        b_mod = int(b * 0.70)
+        r_mod = int(r * 0.50)
         
-        # Mantém a proporção de brilho fechada da capa (escala moderada em vez de estourar para 100%)
-        fator_brilho = 180.0 / max(b, 1) if b < 140 else 1.0
-        return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+        fator_brilho = 90.0 / max(b_mod, 1)
+        return min(255, int(r_mod * fator_brilho)), min(255, int(g_mod * fator_brilho)), min(255, int(b_mod * fator_brilho))
 
-    # 3. Para outras cores (Verde, Amarelo, Roxo)
     r_f, g_f, b_f = r / 255.0, g / 255.0, b / 255.0
     h, s, v = colorsys.rgb_to_hsv(r_f, g_f, b_f)
+    
+    is_vermelho_puro = (r > b * 1.3) or (h < 0.08 or h > 0.92)
+    
+    if 0.68 <= h <= 0.88 and s > 0.15 and not is_vermelho_puro:
+        r_f = min(1.0, r_f * 1.65)
+        b_f = max(0.0, b_f * 0.45)
+        if s >= LIMITE_CINZA:
+            s = max(s, 0.75)
+            v = min(v, 0.80)
+        r_f, g_f, b_f = colorsys.hsv_to_rgb(h, s, v)
+        return int(r_f * 255), int(g_f * 255), int(b_f * 255)
+
+    # 1. Se o VERMELHO for dominante
+    if r > g and r > b:
+        if g > r * 0.45:
+            b = int(b * 0.35)
+            g = int(g * 0.8)  
+            fator_brilho = 255.0 / max(r, 1)
+            return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+        else:
+            # Mantém o verde e o azul extremamente baixos para fechar no tom vinho/bordô
+            g = int(r * 0.05)
+            b = int(r * 0.02)
+            
+            fator_brilho = 95.0 / max(r, 1) if r > 40 else 1.0
+            return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+        
+    # 2. Se o AZUL for dominante
+    if b > r and b > g:
+        r = min(r, int(b * 0.25))
+        g = min(g, int(b * 0.15))
+        
+        fator_brilho = 110.0 / max(b, 1) if b < 140 else 1.0
+        return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+
+    # 3. Para outras cores
     if s >= LIMITE_CINZA:
         s = max(s, 0.75)
-        v = min(v, 0.80)  # Limita o brilho máximo a 80% para não desbotar as cores
+        v = min(v, 0.80)
     r_f, g_f, b_f = colorsys.hsv_to_rgb(h, s, v)
     return int(r_f * 255), int(g_f * 255), int(b_f * 255)
 

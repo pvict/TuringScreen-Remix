@@ -1329,3 +1329,443 @@
 2026-10-08 23:27:21 openrgb: perfil 'purple rain' lido (21 LEDs)
 2026-10-08 23:27:21 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
 2026-10-08 23:27:23 tela conectada - brilho inicial: 60%
+2026-10-09 00:18:15 openrgb: conectando (protocolo 3)...
+2026-10-09 00:18:15 openrgb: conectou em 0.0s
+2026-10-09 00:18:15 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:18:16 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:18:16 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:18:18 tela conectada - brilho inicial: 60%
+2026-10-09 00:22:50 parado
+2026-10-09 00:22:53 openrgb: conectando (protocolo 3)...
+2026-10-09 00:22:53 openrgb: conectou em 0.0s
+2026-10-09 00:22:53 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:22:54 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:22:54 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:22:56 tela conectada - brilho inicial: 60%
+2026-10-09 00:25:21 parado
+2026-10-09 00:25:23 openrgb: conectando (protocolo 3)...
+2026-10-09 00:25:23 openrgb: conectou em 0.0s
+2026-10-09 00:25:23 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:25:24 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:25:24 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:25:26 tela conectada - brilho inicial: 60%
+2026-10-09 00:26:58 parado
+2026-10-09 00:26:59 openrgb: conectando (protocolo 3)...
+2026-10-09 00:26:59 openrgb: conectou em 0.0s
+2026-10-09 00:26:59 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:27:00 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:27:00 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:27:03 tela conectada - brilho inicial: 60%
+2026-10-09 00:29:01 parado
+2026-10-09 00:29:02 openrgb: conectando (protocolo 3)...
+2026-10-09 00:29:02 openrgb: conectou em 0.0s
+2026-10-09 00:29:02 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:29:03 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:29:03 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:29:05 tela conectada - brilho inicial: 60%
+2026-10-09 00:30:43 parado
+2026-10-09 00:30:44 openrgb: conectando (protocolo 3)...
+2026-10-09 00:30:44 openrgb: conectou em 0.0s
+2026-10-09 00:30:44 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:30:45 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:30:45 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:30:48 tela conectada - brilho inicial: 60%
+2026-10-09 00:35:01 parado
+2026-10-09 00:35:02 openrgb: conectando (protocolo 3)...
+2026-10-09 00:35:02 openrgb: conectou em 0.0s
+2026-10-09 00:35:02 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:35:03 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:35:03 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:35:05 tela conectada - brilho inicial: 60%
+2026-10-09 00:37:08 parado
+2026-10-09 00:37:10 openrgb: conectando (protocolo 3)...
+2026-10-09 00:37:10 openrgb: conectou em 0.0s
+2026-10-09 00:37:10 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:37:11 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:37:11 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:37:13 tela conectada - brilho inicial: 60%
+2026-10-09 00:38:53 parado
+2026-10-09 00:38:55 openrgb: conectando (protocolo 3)...
+2026-10-09 00:38:55 openrgb: conectou em 0.0s
+2026-10-09 00:38:55 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:38:56 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:38:56 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:38:58 tela conectada - brilho inicial: 60%
+2026-10-09 00:40:44 parado
+2026-10-09 00:40:45 openrgb: conectando (protocolo 3)...
+2026-10-09 00:40:45 openrgb: conectou em 0.0s
+2026-10-09 00:40:45 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:40:46 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:40:46 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:40:49 tela conectada - brilho inicial: 60%
+2026-10-09 00:40:49 erro: 'NoneType' object has no attribute 'tobytes'
+2026-10-09 00:40:49 tentando reconectar em 5s
+2026-10-09 00:40:58 tela conectada - brilho inicial: 60%
+2026-10-09 00:40:58 erro: 'NoneType' object has no attribute 'tobytes'
+2026-10-09 00:40:58 tentando reconectar em 5s
+2026-10-09 00:41:06 tela conectada - brilho inicial: 60%
+2026-10-09 00:41:07 erro: 'NoneType' object has no attribute 'tobytes'
+2026-10-09 00:41:07 tentando reconectar em 5s
+2026-10-09 00:41:15 tela conectada - brilho inicial: 60%
+2026-10-09 00:41:17 openrgb: conectando (protocolo 3)...
+2026-10-09 00:41:17 openrgb: conectou em 0.0s
+2026-10-09 00:41:17 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:41:18 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:41:18 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:41:20 tela conectada - brilho inicial: 60%
+2026-10-09 00:43:31 parado
+2026-10-09 00:43:33 openrgb: conectando (protocolo 3)...
+2026-10-09 00:43:33 openrgb: conectou em 0.0s
+2026-10-09 00:43:33 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:43:34 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:43:34 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:43:36 tela conectada - brilho inicial: 60%
+2026-10-09 00:44:53 parado
+2026-10-09 00:44:54 openrgb: conectando (protocolo 3)...
+2026-10-09 00:44:54 openrgb: conectou em 0.0s
+2026-10-09 00:44:54 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:44:55 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:44:55 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:44:58 tela conectada - brilho inicial: 60%
+2026-10-09 00:46:23 openrgb: conectando (protocolo 3)...
+2026-10-09 00:46:23 openrgb: conectou em 0.0s
+2026-10-09 00:46:23 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:46:24 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:46:24 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:46:27 tela conectada - brilho inicial: 60%
+2026-10-09 00:47:19 parado
+2026-10-09 00:47:20 openrgb: conectando (protocolo 3)...
+2026-10-09 00:47:20 openrgb: conectou em 0.0s
+2026-10-09 00:47:20 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:47:21 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:47:21 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:47:24 tela conectada - brilho inicial: 60%
+2026-10-09 00:47:54 parado
+2026-10-09 00:47:55 openrgb: conectando (protocolo 3)...
+2026-10-09 00:47:55 openrgb: conectou em 0.0s
+2026-10-09 00:47:55 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:47:56 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:47:56 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:47:59 tela conectada - brilho inicial: 60%
+2026-10-09 00:48:11 parado
+2026-10-09 00:48:12 openrgb: conectando (protocolo 3)...
+2026-10-09 00:48:12 openrgb: conectou em 0.0s
+2026-10-09 00:48:12 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:48:13 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:48:13 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:48:16 tela conectada - brilho inicial: 60%
+2026-10-09 00:50:46 parado
+2026-10-09 00:50:47 openrgb: conectando (protocolo 3)...
+2026-10-09 00:50:47 openrgb: conectou em 0.0s
+2026-10-09 00:50:47 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:50:48 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:50:48 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:50:51 tela conectada - brilho inicial: 60%
+2026-10-09 00:58:02 parado
+2026-10-09 00:58:04 openrgb: conectando (protocolo 3)...
+2026-10-09 00:58:04 openrgb: conectou em 0.0s
+2026-10-09 00:58:04 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:58:05 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:58:05 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:58:07 tela conectada - brilho inicial: 60%
+2026-10-09 00:59:47 parado
+2026-10-09 00:59:48 openrgb: conectando (protocolo 3)...
+2026-10-09 00:59:48 openrgb: conectou em 0.0s
+2026-10-09 00:59:48 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 00:59:49 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 00:59:49 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 00:59:52 tela conectada - brilho inicial: 60%
+2026-10-09 01:00:01 Brilho alterado para: 0%
+2026-10-09 01:00:41 parado
+2026-10-09 01:00:42 openrgb: conectando (protocolo 3)...
+2026-10-09 01:00:42 openrgb: conectou em 0.0s
+2026-10-09 01:00:42 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:00:43 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:00:43 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:00:46 tela conectada - brilho inicial: 100%
+2026-10-09 01:03:02 parado
+2026-10-09 01:03:03 openrgb: conectando (protocolo 3)...
+2026-10-09 01:03:03 openrgb: conectou em 0.0s
+2026-10-09 01:03:03 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:03:04 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:03:04 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:03:07 tela conectada - brilho inicial: 100%
+2026-10-09 01:04:57 parado
+2026-10-09 01:04:59 openrgb: conectando (protocolo 3)...
+2026-10-09 01:04:59 openrgb: conectou em 0.0s
+2026-10-09 01:04:59 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:05:00 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:05:00 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:05:02 tela conectada - brilho inicial: 100%
+2026-10-09 01:06:43 parado
+2026-10-09 01:06:45 openrgb: conectando (protocolo 3)...
+2026-10-09 01:06:45 openrgb: conectou em 0.0s
+2026-10-09 01:06:45 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:06:46 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:06:46 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:06:49 tela conectada - brilho inicial: 100%
+2026-10-09 01:08:15 parado
+2026-10-09 01:08:17 openrgb: conectando (protocolo 3)...
+2026-10-09 01:08:17 openrgb: conectou em 0.0s
+2026-10-09 01:08:17 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:08:18 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:08:18 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:08:20 tela conectada - brilho inicial: 100%
+2026-10-09 01:08:38 parado
+2026-10-09 01:08:39 openrgb: conectando (protocolo 3)...
+2026-10-09 01:08:39 openrgb: conectou em 0.0s
+2026-10-09 01:08:39 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:08:41 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:08:41 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:08:43 tela conectada - brilho inicial: 100%
+2026-10-09 01:08:51 openrgb: SDK server did not respond to previous request
+2026-10-09 01:08:56 openrgb: conectando (protocolo 3)...
+2026-10-09 01:08:56 openrgb: conectou em 0.0s
+2026-10-09 01:08:56 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:08:57 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:08:57 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:09:14 parado
+2026-10-09 01:09:16 openrgb: conectando (protocolo 3)...
+2026-10-09 01:09:16 openrgb: conectou em 0.0s
+2026-10-09 01:09:16 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:09:17 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:09:17 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:09:19 tela conectada - brilho inicial: 100%
+2026-10-09 01:09:38 parado
+2026-10-09 01:09:38 openrgb: conectando (protocolo 3)...
+2026-10-09 01:09:38 openrgb: conectou em 0.0s
+2026-10-09 01:09:38 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:09:39 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:09:39 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:09:42 tela conectada - brilho inicial: 100%
+2026-10-09 01:10:59 parado
+2026-10-09 01:11:01 openrgb: conectando (protocolo 3)...
+2026-10-09 01:11:01 openrgb: conectou em 0.0s
+2026-10-09 01:11:01 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:11:02 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:11:02 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:11:04 tela conectada - brilho inicial: 100%
+2026-10-09 01:11:12 parado
+2026-10-09 01:11:13 openrgb: conectando (protocolo 3)...
+2026-10-09 01:11:13 openrgb: conectou em 0.0s
+2026-10-09 01:11:13 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:11:14 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:11:14 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:11:17 tela conectada - brilho inicial: 100%
+2026-10-09 01:12:37 parado
+2026-10-09 01:12:38 openrgb: conectando (protocolo 3)...
+2026-10-09 01:12:38 openrgb: conectou em 0.0s
+2026-10-09 01:12:38 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:12:39 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:12:39 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:12:42 tela conectada - brilho inicial: 100%
+2026-10-09 01:16:14 parado
+2026-10-09 01:16:16 openrgb: conectando (protocolo 3)...
+2026-10-09 01:16:16 openrgb: conectou em 0.0s
+2026-10-09 01:16:16 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:16:17 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:16:17 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:16:19 tela conectada - brilho inicial: 100%
+2026-10-09 01:16:56 parado
+2026-10-09 01:16:57 openrgb: conectando (protocolo 3)...
+2026-10-09 01:16:57 openrgb: conectou em 0.0s
+2026-10-09 01:16:57 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:16:58 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:16:58 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:17:01 tela conectada - brilho inicial: 100%
+2026-10-09 01:17:53 parado
+2026-10-09 01:17:54 openrgb: conectando (protocolo 3)...
+2026-10-09 01:17:54 openrgb: conectou em 0.0s
+2026-10-09 01:17:54 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:17:55 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:17:55 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:17:58 tela conectada - brilho inicial: 100%
+2026-10-09 01:18:50 parado
+2026-10-09 01:18:51 openrgb: conectando (protocolo 3)...
+2026-10-09 01:18:51 openrgb: conectou em 0.0s
+2026-10-09 01:18:51 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:18:52 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:18:52 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:18:54 tela conectada - brilho inicial: 100%
+2026-10-09 01:19:28 parado
+2026-10-09 01:19:29 openrgb: conectando (protocolo 3)...
+2026-10-09 01:19:29 openrgb: conectou em 0.0s
+2026-10-09 01:19:29 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:19:30 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:19:30 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:19:33 tela conectada - brilho inicial: 100%
+2026-10-09 01:20:19 parado
+2026-10-09 01:20:20 openrgb: conectando (protocolo 3)...
+2026-10-09 01:20:20 openrgb: conectou em 0.0s
+2026-10-09 01:20:20 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:20:21 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:20:21 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:20:23 tela conectada - brilho inicial: 100%
+2026-10-09 01:20:30 parado
+2026-10-09 01:20:31 openrgb: conectando (protocolo 3)...
+2026-10-09 01:20:31 openrgb: conectou em 0.0s
+2026-10-09 01:20:31 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:20:32 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:20:32 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:20:34 tela conectada - brilho inicial: 100%
+2026-10-09 01:21:48 parado
+2026-10-09 01:21:49 openrgb: conectando (protocolo 3)...
+2026-10-09 01:21:49 openrgb: conectou em 0.0s
+2026-10-09 01:21:49 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:21:50 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:21:50 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:21:53 tela conectada - brilho inicial: 100%
+2026-10-09 01:22:34 parado
+2026-10-09 01:22:35 openrgb: conectando (protocolo 3)...
+2026-10-09 01:22:35 openrgb: conectou em 0.0s
+2026-10-09 01:22:35 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:22:36 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:22:36 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:22:38 tela conectada - brilho inicial: 100%
+2026-10-09 01:22:50 parado
+2026-10-09 01:22:51 openrgb: conectando (protocolo 3)...
+2026-10-09 01:22:51 openrgb: conectou em 0.0s
+2026-10-09 01:22:51 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:22:52 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:22:52 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:22:54 tela conectada - brilho inicial: 100%
+2026-10-09 01:24:05 parado
+2026-10-09 01:24:06 openrgb: conectando (protocolo 3)...
+2026-10-09 01:24:06 openrgb: conectou em 0.0s
+2026-10-09 01:24:06 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:24:07 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:24:07 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:24:10 tela conectada - brilho inicial: 100%
+2026-10-09 01:24:22 parado
+2026-10-09 01:25:42 openrgb: conectando (protocolo 3)...
+2026-10-09 01:25:42 openrgb: conectou em 0.0s
+2026-10-09 01:25:42 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:25:43 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:25:43 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:25:45 tela conectada - brilho inicial: 100%
+2026-10-09 01:25:55 parado
+2026-10-09 01:26:58 openrgb: conectando (protocolo 3)...
+2026-10-09 01:26:58 openrgb: conectou em 0.0s
+2026-10-09 01:26:58 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:26:59 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:26:59 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:26:59 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:01 tela conectada - brilho inicial: 100%
+2026-10-09 01:27:04 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:04 openrgb: conectou em 0.0s
+2026-10-09 01:27:04 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:05 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:05 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:05 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:10 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:10 openrgb: conectou em 0.0s
+2026-10-09 01:27:10 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:11 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:11 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:11 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:16 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:16 openrgb: conectou em 0.0s
+2026-10-09 01:27:16 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:17 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:17 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:17 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:22 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:22 openrgb: conectou em 0.0s
+2026-10-09 01:27:22 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:23 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:23 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:23 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:28 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:28 openrgb: conectou em 0.0s
+2026-10-09 01:27:28 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:29 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:29 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:29 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:34 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:34 openrgb: conectou em 0.0s
+2026-10-09 01:27:34 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:35 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:35 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:35 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:40 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:40 openrgb: conectou em 0.0s
+2026-10-09 01:27:40 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:41 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:41 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:41 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:46 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:46 openrgb: conectou em 0.0s
+2026-10-09 01:27:46 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:47 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:47 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:47 openrgb: cannot access local variable '_ultima_cor_debug' where it is not associated with a value
+2026-10-09 01:27:49 parado
+2026-10-09 01:27:50 openrgb: conectando (protocolo 3)...
+2026-10-09 01:27:50 openrgb: conectou em 0.0s
+2026-10-09 01:27:50 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:27:51 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:27:51 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:27:54 tela conectada - brilho inicial: 100%
+2026-10-09 01:28:49 parado
+2026-10-09 01:28:51 openrgb: conectando (protocolo 3)...
+2026-10-09 01:28:51 openrgb: conectou em 0.0s
+2026-10-09 01:28:51 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:28:52 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:28:52 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:28:54 tela conectada - brilho inicial: 30%
+2026-10-09 01:32:40 parado
+2026-10-09 01:32:41 openrgb: conectando (protocolo 3)...
+2026-10-09 01:32:41 openrgb: conectou em 0.0s
+2026-10-09 01:32:41 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:32:42 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:32:42 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:32:44 tela conectada - brilho inicial: 30%
+2026-10-09 01:34:35 parado
+2026-10-09 01:34:36 openrgb: conectando (protocolo 3)...
+2026-10-09 01:34:36 openrgb: conectou em 0.0s
+2026-10-09 01:34:36 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:34:37 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:34:37 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:34:39 tela conectada - brilho inicial: 30%
+2026-10-09 01:36:58 parado
+2026-10-09 01:36:59 openrgb: conectando (protocolo 3)...
+2026-10-09 01:36:59 openrgb: conectou em 0.0s
+2026-10-09 01:36:59 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:37:00 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:37:00 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:37:03 tela conectada - brilho inicial: 30%
+2026-10-09 01:37:50 parado
+2026-10-09 01:37:51 openrgb: conectando (protocolo 3)...
+2026-10-09 01:37:51 openrgb: conectou em 0.0s
+2026-10-09 01:37:51 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:37:52 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:37:52 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:37:54 tela conectada - brilho inicial: 30%
+2026-10-09 01:39:12 parado
+2026-10-09 01:39:13 openrgb: conectando (protocolo 3)...
+2026-10-09 01:39:13 openrgb: conectou em 0.0s
+2026-10-09 01:39:13 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:39:14 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:39:14 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:39:16 tela conectada - brilho inicial: 30%
+2026-10-09 01:40:48 parado
+2026-10-09 01:40:49 openrgb: conectando (protocolo 3)...
+2026-10-09 01:40:49 openrgb: conectou em 0.0s
+2026-10-09 01:40:49 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:40:50 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:40:50 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:40:53 tela conectada - brilho inicial: 30%
+2026-10-09 01:42:13 parado
+2026-10-09 01:42:14 openrgb: conectando (protocolo 3)...
+2026-10-09 01:42:14 openrgb: conectou em 0.0s
+2026-10-09 01:42:14 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:42:15 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:42:15 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:42:18 tela conectada - brilho inicial: 30%
+2026-10-09 01:44:58 parado
+2026-10-09 01:44:59 openrgb: conectando (protocolo 3)...
+2026-10-09 01:44:59 openrgb: conectou em 0.0s
+2026-10-09 01:44:59 openrgb: dispositivos ['ASRock B450M Steel Legend']
+2026-10-09 01:45:00 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-09 01:45:00 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-09 01:45:02 tela conectada - brilho inicial: 30%

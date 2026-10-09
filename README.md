@@ -1,87 +1,103 @@
-<h1 align="center">🎵 Turing Vinyl - With Spotify Integration</h1>
+<h1 align="center">🎵 Turing Vinyl</h1>
 
-<p align="center"><a href="README.md">Português</a> · <a href="README.en.md">English</a></p>
+<p align="center"><a href="README.pt-BR.md">Português</a> · <a href="README.md">English</a></p>
 
 <p align="center">
-  Uma experiência musical animada para a Turing Smart Screen: capas, playlists e LEDs sincronizados com o que está tocando.
+  A music display for the Turing Smart Screen, with Spotify album art, playlist animations, vinyl transitions, and OpenRGB lighting.
 </p>
 
 <p align="center">
-  <a href="https://github.com/pvict/TuringScreen-Remix/stargazers"><img src="https://img.shields.io/github/stars/pvict/TuringScreen-Remix?color=7956D8&style=for-the-badge" alt="Estrelas no GitHub"></a>
-  <a href="https://github.com/pvict/TuringScreen-Remix/network/members"><img src="https://img.shields.io/github/forks/pvict/TuringScreen-Remix?color=7956D8&style=for-the-badge" alt="Forks no GitHub"></a>
-  <img src="https://img.shields.io/badge/Python-3.9%2B-7956D8?logo=python&logoColor=white&style=for-the-badge" alt="Python 3.9 ou superior">
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-7956D8?logo=windows&logoColor=white&style=for-the-badge" alt="Windows 10 ou 11">
-  <img src="https://img.shields.io/badge/Animação-60%20FPS-7956D8?style=for-the-badge" alt="Animação a 60 FPS">
-  <img src="https://img.shields.io/badge/Licença-não%20declarada-lightgrey?style=for-the-badge" alt="Licença não declarada">
+  <a href="https://github.com/pvict/TuringScreen-SpotifyVinyl/stargazers"><img src="https://img.shields.io/github/stars/pvict/TuringScreen-SpotifyVinyl?color=7956D8&style=for-the-badge" alt="GitHub stars"></a>
+  <a href="https://github.com/pvict/TuringScreen-SpotifyVinyl/network/members"><img src="https://img.shields.io/github/forks/pvict/TuringScreen-SpotifyVinyl?color=7956D8&style=for-the-badge" alt="GitHub forks"></a>
+  <img src="https://img.shields.io/badge/Python-3.9%2B-7956D8?logo=python&logoColor=white&style=for-the-badge" alt="Python 3.9 or later">
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-7956D8?logo=windows&logoColor=white&style=for-the-badge" alt="Windows 10 or 11">
+  <img src="https://img.shields.io/badge/Animation-60%20FPS-7956D8?style=for-the-badge" alt="60 FPS target">
+  <img src="https://img.shields.io/badge/License-not%20specified-lightgrey?style=for-the-badge" alt="License not specified">
 </p>
 
 <p align="center">
-  <a href="#-recursos">Recursos</a> ·
-  <a href="#-instalação">Instalação</a> ·
-  <a href="#-configuração">Configuração</a> ·
-  <a href="#-execução">Execução</a> ·
-  <a href="#-ajuda">Ajuda</a>
+  <a href="#-features">Features</a> ·
+  <a href="#-installation">Installation</a> ·
+  <a href="#-configuration">Configuration</a> ·
+  <a href="#-running-the-project">Running the project</a> ·
+  <a href="#-troubleshooting">Troubleshooting</a>
 </p>
 
 ---
 
-## :sparkles: Sobre
+## :sparkles: About
 
-O **Turing Vinyl** transforma uma tela USB Turing Smart Screen em um display animado para música. Ele acompanha a reprodução do Windows, mostra a capa do álbum e o progresso da faixa, destaca a playlist atual e combina a experiência com os LEDs controlados pelo OpenRGB.
+**Turing Vinyl** turns a USB Turing Smart Screen into an animated music display. It follows Windows playback, shows album art and track progress, highlights the current playlist, and pairs the experience with LEDs controlled through OpenRGB.
 
-> Projeto pessoal em evolução, feito para uma configuração específica de hardware. A comunicação USB, o OpenRGB e a integração com o Spotify dependem do equipamento, dos drivers e das versões instaladas.
+> This is an evolving personal project built for a specific hardware setup. USB communication, OpenRGB, and Spotify integration depend on the equipment, drivers, and installed software versions.
 
-## :camera: Projeto em funcionamento
+### Related project and compatibility
+
+[turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) is a popular, broader system-monitoring project and Python library for several small USB-C displays, including Turing Smart Screen models. Turing Vinyl has a different focus: a music-driven display experience. Its compatibility is validated separately, so support in one project does not guarantee support in the other.
+
+This repository uses the separate [Turing Smart Screen CLI](https://github.com/phstudy/turing-smart-screen-cli) by Study Hsueh for screen communication. Its MIT license is included in `turing-smart-screen-cli-main/LICENSE`. Turing Vinyl is an unofficial community project and is not affiliated with Turing, XuanFang, or their manufacturers.
+
+## :camera: Project in action
 
 <p align="center">
-  <img src="docs/images/turing-vinyl-setup.png" alt="Turing Vinyl exibindo a capa de True Colors no display, com os LEDs do computador sincronizados" width="720">
+  <img src="docs/images/turing-vinyl-setup.png" alt="Turing Vinyl showing the True Colors album art on the display, with synchronized PC lighting" width="720">
 </p>
 
-<p align="center"><em>A tela exibe a faixa atual enquanto a iluminação do computador acompanha a experiência.</em></p>
+<p align="center"><em>The screen shows the current track while the computer lighting follows the experience.</em></p>
 
-<p align="center"><strong>▶ Demonstração completa do projeto (24 segundos)</strong></p>
+<p align="center"><strong>▶ Full project demo (24 seconds)</strong></p>
 
 https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
 
-## :star2: Recursos
+### What happens in the demo
 
-- Animações transmitidas à tela com taxa alvo de **60 quadros por segundo**.
-- Capa do álbum, informações da faixa e arco de progresso da música.
-- Transições animadas entre músicas e capas.
-- Nome e capa da playlist quando ela muda e em exibições periódicas durante a reprodução.
-- Fundos em vídeo para os estados de reprodução e pausa/ociosidade.
-- Brilho da tela ajustado conforme a programação configurada no script.
-- LEDs sincronizados com a cor da capa do álbum; em ociosidade, é usado o perfil escolhido no OpenRGB.
-- Registro de execução em `tela.log`.
+1. Pausing the music slows the vinyl down.
+2. The background video changes with a smooth RGB transition.
+3. Resuming playback speeds the vinyl back up.
+4. A playlist animation shows which playlist the track belongs to.
 
-## :hammer_and_wrench: Como funciona
+## :star2: Features
 
-| Arquivo | Responsabilidade |
+- Animations streamed to the display at a target of **60 frames per second**.
+- Album art, track information, and a music progress arc.
+- Animated transitions between tracks and album covers.
+- Vinyl rotation slows down on pause and accelerates when playback resumes.
+- A smooth RGB transition accompanies the change to the paused background video.
+- Playlist name and cover when the playlist changes, with periodic displays during playback.
+- An animation introduces the playlist currently playing.
+- Video backgrounds for playback and paused/idle states.
+- Screen brightness adjusted according to the schedule configured in the script.
+- LEDs synchronized with album-cover colors; while idle, the selected OpenRGB profile is used.
+- Runtime information recorded in `tela.log`.
+
+## :hammer_and_wrench: How it works
+
+| File | Responsibility |
 | --- | --- |
-| `tela_completa.py` | Coordena a tela, a mídia do Windows, o volume, o Spotify e o OpenRGB. É o ponto de entrada. |
-| `ao_vivo.py` | Compõe os elementos visuais e codifica o fluxo H.264 em tempo real com FFmpeg. |
-| `animacao_capa.py` | Controla as transições das capas. |
-| `spotify_playlist.py` | Consulta o contexto de reprodução e os dados da playlist pela API do Spotify. |
-| `leds_openrgb.py` | Controla as zonas RGB selecionadas e aplica as cores do álbum ou o perfil de ociosidade. |
+| `tela_completa.py` | Coordinates the display, Windows media, volume, Spotify, and OpenRGB. This is the entry point. |
+| `ao_vivo.py` | Composes the visuals and encodes the live H.264 stream with FFmpeg. |
+| `animacao_capa.py` | Controls album-cover transitions. |
+| `spotify_playlist.py` | Retrieves playback context and playlist data through the Spotify API. |
+| `leds_openrgb.py` | Controls the selected RGB zones and applies album colors or the idle profile. |
 
-O Spotify é consultado a cada cinco segundos. Quando o contexto muda, o nome e a arte da playlist são atualizados; a tela mostra a mensagem e a capa por alguns segundos, e repete a exibição periodicamente. Os LEDs continuam seguindo a cor da capa do álbum.
+Spotify is queried every five seconds. When the playback context changes, the playlist name and artwork are updated; the screen shows the message and cover for a few seconds, then repeats the display periodically. The LEDs continue to follow the album-cover color.
 
-## :computer: Requisitos
+## :computer: Requirements
 
-- Windows 10 ou 11.
-- Tela Turing Smart Screen USB compatível com o protocolo usado pelo projeto.
-- Python 3.9 ou superior (Python 3.11 é uma opção adequada para começar).
-- FFmpeg no `PATH`, com suporte ao codificador NVIDIA `h264_nvenc`.
-- GPU NVIDIA compatível com NVENC e driver instalado.
-- OpenRGB instalado e configurado para controlar a placa/controladora.
-- Conta Spotify e aplicativo criado no [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-- Os vídeos de fundo esperados pelo script.
+- Windows 10 or 11.
+- A USB Turing Smart Screen compatible with the protocol used by this project.
+- Python 3.9 or later (Python 3.11 is a suitable starting point).
+- FFmpeg on `PATH`, with support for NVIDIA's `h264_nvenc` encoder.
+- An NVENC-compatible NVIDIA GPU and an installed driver.
+- OpenRGB installed and configured to control the motherboard/controller.
+- A Spotify account and an app created in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+- The background video files expected by the script.
 
-> **Sobre os 60 FPS:** esse é o alvo do fluxo, não uma garantia de que todo quadro chegará à tela. O resultado depende do computador, do FFmpeg/NVENC, da conexão USB e do próprio display.
+> **About 60 FPS:** this is the stream's target, not a guarantee that every frame will reach the display. Results depend on the computer, FFmpeg/NVENC, the USB connection, and the display itself.
 
-## :electric_plug: Instalação
+## :electric_plug: Installation
 
-Abra o PowerShell na pasta do projeto e crie um ambiente virtual:
+Open PowerShell in the project folder and create a virtual environment:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -89,118 +105,118 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 ```
 
-Instale as dependências do aplicativo:
+Install the application dependencies:
 
 ```powershell
 python -m pip install Pillow pyusb pycryptodome libusb-package openrgb-python pycaw comtypes winrt-runtime winrt-Windows.Foundation winrt-Windows.Foundation.Collections winrt-Windows.Media.Control winrt-Windows.Storage.Streams
 python -m pip install -e .\turing-smart-screen-cli-main
 ```
 
-Instale o FFmpeg separadamente e confirme que o PowerShell consegue encontrá-lo:
+Install FFmpeg separately and check that PowerShell can find it:
 
 ```powershell
 ffmpeg -encoders | Select-String h264_nvenc
 ```
 
-Se `h264_nvenc` não aparecer, instale uma compilação do FFmpeg com suporte a NVENC e confira o driver da GPU.
+If `h264_nvenc` does not appear, install an FFmpeg build with NVENC support and check your GPU driver.
 
-## :gear: Configuração
+## :gear: Configuration
 
 ### Spotify
 
-1. Crie um aplicativo no [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-2. Nas configurações do aplicativo, adicione este endereço de retorno:
+1. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+2. Add this redirect address in the app settings:
 
    ```text
    http://127.0.0.1:8765/callback
    ```
 
-3. Crie `spotify_client_id.txt` na pasta do projeto e coloque somente o **Client ID**, em uma linha.
-4. Na primeira execução, autorize o aplicativo na janela do navegador que será aberta.
+3. Create `spotify_client_id.txt` in the project folder and put only the **Client ID** on one line.
+4. On the first run, authorize the app in the browser window that opens.
 
-O projeto usa OAuth PKCE, portanto não precisa do Client Secret. O token de autorização é armazenado localmente, protegido pelo Windows, em `%LOCALAPPDATA%\TuringScreen\spotify_token.bin`.
+The project uses OAuth PKCE, so it does not need a Client Secret. The authorization token is stored locally and protected by Windows at `%LOCALAPPDATA%\TuringScreen\spotify_token.bin`.
 
 ### OpenRGB
 
-1. Abra o OpenRGB e ative o servidor SDK em `127.0.0.1:6742`.
-2. Se necessário para detectar ou controlar a placa, execute o OpenRGB como administrador.
-3. Salve no OpenRGB o perfil de ociosidade chamado `purple rain`.
-4. Em `leds_openrgb.py`, confira as configurações `DISPOSITIVOS` e `ZONAS`. O padrão procura o dispositivo ASRock e as zonas Addressable Header, PCH e IO Cover.
+1. Open OpenRGB and enable its SDK server at `127.0.0.1:6742`.
+2. If needed to detect or control the motherboard, run OpenRGB as administrator.
+3. Save an idle profile named `purple rain` in OpenRGB.
+4. In `leds_openrgb.py`, check the `DISPOSITIVOS` and `ZONAS` settings. The defaults look for an ASRock device and the Addressable Header, PCH, and IO Cover zones.
 
-O projeto guarda uma cópia das cores do perfil em `perfil_ocioso.json`. Para recarregar o perfil, apague esse arquivo antes de executar ou ajuste `RELER_PERFIL` em `leds_openrgb.py`. Não deixe outro programa controlar simultaneamente as mesmas zonas RGB.
+The project stores a copy of the profile colors in `perfil_ocioso.json`. To reload the profile, delete this file before running the script or adjust `RELER_PERFIL` in `leds_openrgb.py`. Do not let another program control the same RGB zones at the same time.
 
-### Vídeos
+### Videos
 
-Mantenha estes arquivos ao lado de `tela_completa.py`:
+Keep these files next to `tela_completa.py`:
 
-| Arquivo | Quando aparece |
+| File | When it appears |
 | --- | --- |
-| `video_tela.mp4` | Durante a reprodução |
-| `video_fundo.mp4` | Em pausa ou ociosidade |
+| `video_tela.mp4` | During playback |
+| `video_fundo.mp4` | While paused or idle |
 
-Os conversores produzem vídeos quadrados de 480 × 480 a 30 FPS:
+The converters produce 480 × 480 square videos at 30 FPS:
 
-- `converter.bat` gera `video_tela.mp4` a partir de `entrada.mp4`. Na versão atual, o nome de origem está fixado no próprio arquivo; coloque o vídeo com esse nome na pasta do projeto.
-- `converter_fundo.bat` pede o caminho do vídeo de origem e gera `video_fundo.mp4`.
+- `converter.bat` creates `video_tela.mp4` from `entrada.mp4`. The source filename is currently fixed in the batch file; place the video under that name in the project folder.
+- `converter_fundo.bat` asks for the source video path and creates `video_fundo.mp4`.
 
-Os arquivos `.h264` presentes no repositório são mantidos junto dos recursos de vídeo. Não os remova nem os ignore sem confirmar que o fluxo atual não depende deles.
+The `.h264` files in the repository are kept alongside the video assets. Do not remove or ignore them without first confirming that the current workflow does not depend on them.
 
-## :rocket: Execução
+## :rocket: Running the project
 
-Com a tela conectada, o ambiente virtual ativado e o servidor SDK do OpenRGB disponível, execute:
+With the display connected, the virtual environment activated, and the OpenRGB SDK server available, run:
 
 ```powershell
 python tela_completa.py
 ```
 
-Para encerrar, pressione `Ctrl+C` no terminal. O arquivo `tela.log` registra informações de inicialização, conexões e mensagens do FFmpeg.
+To stop, press `Ctrl+C` in the terminal. The `tela.log` file records startup information, connections, and FFmpeg messages.
 
-## :art: Personalização
+## :art: Customization
 
-As principais opções ficam no início dos scripts:
+The main options are near the top of the scripts:
 
-- `tela_completa.py`: FPS alvo, dimensões, arquivos de vídeo, brilho e elementos da tela.
-- `leds_openrgb.py`: dispositivo, zonas RGB, perfil de ociosidade, saturação e intervalo entre gravações.
-- `animacao_capa.py`: estilo e duração das transições.
-- `spotify_playlist.py`: intervalo de consulta e integração OAuth.
+- `tela_completa.py`: target FPS, dimensions, video files, brightness, and display elements.
+- `leds_openrgb.py`: device, zones, idle profile, saturation, and delay between writes.
+- `animacao_capa.py`: transition style and duration.
+- `spotify_playlist.py`: polling interval and OAuth integration.
 
-Faça uma cópia antes de alterar os parâmetros de desempenho ou de gravação RGB. A controladora pode reagir de forma diferente conforme a placa, o firmware e o número de zonas.
+Make a backup before changing performance or RGB-write settings. The controller may behave differently depending on the motherboard, firmware, and number of zones.
 
-## :ambulance: Ajuda
+## :ambulance: Troubleshooting
 
-| Problema | O que conferir |
+| Problem | What to check |
 | --- | --- |
-| A tela não é encontrada | Cabo USB, alimentação, driver, compatibilidade do modelo e possíveis programas usando o dispositivo. |
-| FFmpeg não é encontrado | Instalação do FFmpeg e pasta `bin` no `PATH`; abra um novo terminal depois de alterar o PATH. |
-| `h264_nvenc` não aparece | Compilação do FFmpeg com NVENC e driver NVIDIA. |
-| A playlist não aparece | Client ID, Redirect URI, conexão com a internet e autorização no navegador. Para autorizar de novo, remova o token local. |
-| OpenRGB não conecta | Servidor SDK ativo em `127.0.0.1:6742` e ausência de outro processo controlando as mesmas zonas. |
-| LEDs mostram cores incorretas | Pare o script, feche outros controladores RGB, restaure o perfil no OpenRGB e confira as mensagens em `tela.log`. |
-| O vídeo engasga | Confira uso de GPU/CPU, suporte NVENC e outros programas que codifiquem vídeo; a conexão USB e a tela também influenciam. |
+| The display is not found | USB cable, power, driver, model compatibility, and other programs using the device. |
+| FFmpeg is not found | FFmpeg installation and its `bin` folder on `PATH`; open a new terminal after changing `PATH`. |
+| `h264_nvenc` is missing | An FFmpeg build with NVENC support and the NVIDIA driver. |
+| The playlist does not appear | Client ID, Redirect URI, internet connection, and browser authorization. To authorize again, remove the local token. |
+| OpenRGB will not connect | SDK server running at `127.0.0.1:6742` and no other process controlling the same zones. |
+| LEDs show incorrect colors | Stop the script, close other RGB controllers, restore the profile in OpenRGB, and check `tela.log`. |
+| Video stutters | Check GPU/CPU usage, NVENC support, and other video-encoding programs; the USB connection and display also matter. |
 
-## :lock: Privacidade e credenciais
+## :lock: Privacy and credentials
 
-- Não publique `spotify_client_id.txt`, tokens, logs ou dados pessoais.
-- Não adicione Client Secret ao código: a integração usa PKCE e não precisa dele.
-- A integração consulta a API do Spotify para obter informações da reprodução e da playlist.
-- O OpenRGB é acessado localmente pelo servidor SDK em `127.0.0.1`.
+- Do not publish `spotify_client_id.txt`, tokens, logs, or personal data.
+- Do not add a Client Secret to the code: the integration uses PKCE and does not need one.
+- The integration queries the Spotify API for playback and playlist information.
+- OpenRGB is accessed locally through its SDK server at `127.0.0.1`.
 
-## :handshake: Contribuições
+## :handshake: Contributions
 
-Sugestões e relatos de problemas são bem-vindos. Ao abrir uma issue, inclua os passos para reproduzir o problema e, quando ajudar, um trecho relevante do `tela.log` — removendo antes qualquer dado pessoal ou credencial.
+Suggestions and bug reports are welcome. When opening an issue, include the steps to reproduce the problem and, when useful, a relevant excerpt from `tela.log`—remove personal information or credentials first.
 
-Para propor uma alteração:
+To propose a change:
 
-1. Faça um fork do projeto e crie uma branch para sua mudança.
-2. Faça commits pequenos e descritivos.
-3. Abra um pull request explicando o que mudou e como foi verificado.
+1. Fork the project and create a branch for your change.
+2. Make small, descriptive commits.
+3. Open a pull request explaining what changed and how it was verified.
 
-## :scroll: Licença e créditos
+## :scroll: License and credits
 
-Este repositório ainda não declara uma licença para os scripts e mídias próprios do projeto. Até que uma licença seja adicionada, não presuma que eles podem ser reutilizados ou redistribuídos. O código em `turing-smart-screen-cli-main` tem licença própria; consulte `turing-smart-screen-cli-main/LICENSE`. Verifique também os direitos das fontes, vídeos, imagens e artes incluídos.
+This repository does not yet declare a license for its own scripts and media. Until a license is added, do not assume they may be reused or redistributed. The code in `turing-smart-screen-cli-main` has its own license; see `turing-smart-screen-cli-main/LICENSE`. Also check the rights for the included fonts, videos, images, and artwork.
 
-A integração com Spotify deve respeitar os [Termos da Plataforma Spotify](https://developer.spotify.com/terms) e as [Diretrizes de Design](https://developer.spotify.com/documentation/design). O uso de capas e a apresentação de conteúdo musical podem estar sujeitos a restrições; confira as regras vigentes antes de distribuir o projeto.
+The Spotify integration must follow the [Spotify Platform Terms](https://developer.spotify.com/terms) and [Design Guidelines](https://developer.spotify.com/documentation/design). Album art and the presentation of music content may be subject to restrictions; check the current rules before distributing the project.
 
 <p align="center">
-  Feito com 💜 por <a href="https://github.com/pvict">Paulo</a>
+  Made with 💜 by <a href="https://github.com/pvict">Paulo</a>
 </p>

@@ -1,3 +1,31 @@
 spotify_client_id.txt
 __pycache__/
 *.pyc
+
+# Ambiente local, artefatos de compilação e backups
+/.venv/
+/build/
+*.bak*
+/tela.log
+
+# Scripts de diagnóstico e testes manuais locais
+/teste_*.py
+/info.py
+/listar_sensores.py
+/listar_tela.py
+
+# Imagens geradas durante testes/execução de scripts antigos
+/area.png
+/overlay.png
+/quadro.png
+/travau.png
+/vinil_parado.png
+
+# Cópias e versões antigas dos scripts
+/leds_openrgb - Copia.py
+/tela_completa2.py
+/spotify_tela.py
+/spotify_video.py
+/spotify_video_nativo.py
+/modo.txt
+/sessao.txt

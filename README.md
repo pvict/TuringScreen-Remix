@@ -37,6 +37,10 @@ O **Turing Vinyl** transforma uma tela USB Turing Smart Screen em um display ani
 
 <p align="center"><em>A tela exibe a faixa atual enquanto a iluminação do computador acompanha a experiência.</em></p>
 
+<p align="center"><strong>▶ Demonstração completa do projeto (24 segundos)</strong></p>
+
+https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
+
 ## :star2: Recursos
 
 - Animações transmitidas à tela com taxa alvo de **60 quadros por segundo**.

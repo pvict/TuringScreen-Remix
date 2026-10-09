@@ -166,6 +166,10 @@ _cache_halo_img = None
 _cache_vol_anim = None
 _cache_vol_opacidade = 0.0
 
+_transicao_musica_atual = None
+_capa_anterior = None
+_transicao_progresso = 1.0  # 1.0 = transição concluída
+
 
 def _laco_volume():
     """Lê o volume do Windows em background de forma ultra-rápida e responsiva."""
@@ -244,34 +248,46 @@ def renderizar(snap):
         _cache_halo_cor = None
         _cache_halo_img = None
 
-    # 1. Trilha de fundo do anel e progresso (Apenas desenha se houver música ativa)
-    if musica:
+    # 1. Trilha de fundo do anel
+    d.arc(
+        (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
+        0, 360, fill=(255, 255, 255, 35), width=4
+    )
+
+    if musica and snap.get("dur", 0) > 0:
+        duracao = snap["dur"]
+        pos_alvo = snap["pos"]
+        
+        if snap.get("tocando"):
+            pos_alvo += time.monotonic() - snap["t_poll"]
+            
+        # Inicializa a variável de posição suavizada no cache global se não existir
+        global _prog_suave
+        if "_prog_suave" not in globals() or _prog_suave is None or abs(_prog_suave - pos_alvo) > 3.0:
+            _prog_suave = pos_alvo
+            
+        # Interpolação linear (LERP): suaviza a transição aproximando o valor atual do valor alvo gradualmente
+        _prog_suave += (pos_alvo - _prog_suave) * 0.25
+        
+        frac = min(max(_prog_suave / duracao, 0), 1)
+        ang_fim = -90 + int(360 * frac)
+
+        # 2. Arco ativo principal com transição ultra suave
         d.arc(
             (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
-            0, 360, fill=(255, 255, 255, 35), width=4
+            -90, ang_fim, fill=cor_destaque, width=4
         )
 
-        if snap.get("dur", 0) > 0:
-            pos = snap["pos"]
-            if snap["tocando"]:
-                pos += time.monotonic() - snap["t_poll"]
-            frac = min(max(pos / snap["dur"], 0), 1)
-            ang_fim = -90 + int(360 * frac)
-
-            # 2. Arco ativo principal
-            d.arc(
-                (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
-                -90, ang_fim, fill=cor_destaque, width=4
-            )
-
-    # 3. Capa do Álbum
+    # 3. Capa do Álbum (Perfeitamente redonda, instantânea e leve)
     capa = snap.get("capa")
     if capa is not None and musica:
         x_capa = cx - (TAM_CAPA // 2)
         y_capa = cy - (TAM_CAPA // 2)
+        
+        # Desenha diretamente a capa já tratada e circular, sem sobrecarregar o CPU com filtros por frame
         img.alpha_composite(capa, (x_capa, y_capa))
 
-    # 4. Textos e Marquee
+    # 4. Textos e Marquee (Com fade suave nas pontas)
     if musica:
         titulo, artista = musica
         y_texto = cy + raio_anel + 20
@@ -297,10 +313,28 @@ def renderizar(snap):
                 _cache_marquee_largura = int(d.textlength(titulo_str + "    •    ", font=F_TITULO))
 
             velocidade = 35.0
-            # Usa diretamente o tempo atual (time.monotonic()) para calcular o deslocamento contínuo em alta precisão
             deslocamento_int = int((time.monotonic() * velocidade) % _cache_marquee_largura)
             
             janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
+            
+            # --- MÁSCARA DE FADE NAS EXTREMIDADES ---
+            global _cache_marquee_mascara
+            if "_cache_marquee_mascara" not in globals() or globals()["_cache_marquee_mascara"] is None:
+                mascara = Image.new("L", (LARGURA_MAXIMA, 60), 255)
+                d_mask = ImageDraw.Draw(mascara)
+                fade_w = 25  # Largura da zona de transição nas pontas (em pixels)
+                for x in range(fade_w):
+                    alpha = int(255 * (x / fade_w))
+                    d_mask.line([(x, 0), (x, 60)], fill=alpha)
+                    d_mask.line([(LARGURA_MAXIMA - 1 - x, 0), (LARGURA_MAXIMA - 1 - x, 60)], fill=alpha)
+                _cache_marquee_mascara = mascara
+
+            # Aplica o gradiente alfa de forma otimizada usando ImageChops
+            from PIL import ImageChops
+            r, g, b, a = janela.split()
+            a_fade = ImageChops.multiply(a, _cache_marquee_mascara)
+            janela = Image.merge("RGBA", (r, g, b, a_fade))
+            
             x_pos = cx - (LARGURA_MAXIMA // 2)
             img.alpha_composite(janela, (x_pos, int(y_texto)))
             

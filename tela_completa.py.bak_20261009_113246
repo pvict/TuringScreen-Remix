@@ -274,7 +274,7 @@ def renderizar(snap):
         _prog_suave += (pos_alvo - _prog_suave) * 0.25
         
         frac = min(max(_prog_suave / duracao, 0), 1)
-        ang_fim = -90 + 360 * frac
+        ang_fim = -90 + int(360 * frac)
 
         # 2. Arco ativo principal com transição ultra suave
         d.arc(
@@ -729,10 +729,8 @@ def sessao_usb():
 
         log(f"tela conectada - brilho inicial: {brilho}%")
 
-        fundo_musica = ao_vivo.FundoDecoder(
-            ARQUIVO_MUSICA, FPS, log=log, nome="fundo da música")
-        fundo_ocioso = ao_vivo.FundoDecoder(
-            ARQUIVO_BACKGROUND, FPS, log=log, nome="fundo ocioso")
+        fundo_musica = ao_vivo.FundoDecoder(ARQUIVO_MUSICA, FPS)
+        fundo_ocioso = ao_vivo.FundoDecoder(ARQUIVO_BACKGROUND, FPS)
         painel = Painel(fundo_musica, fundo_ocioso, brilho)
 
         # O pipeline dá parar.set() no próprio evento ao terminar (inclusive por erro);
@@ -747,7 +745,7 @@ def sessao_usb():
         threading.Thread(target=ponte, daemon=True).start()
 
         pipe = ao_vivo.PipelineAoVivo(
-            dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao, log=log)
+            dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao)
         painel.pipe = pipe
         try:
             pipe.rodar()

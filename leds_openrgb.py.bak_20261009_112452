@@ -70,7 +70,7 @@ def realcar(cor):
 
     # --- TRATAMENTO PARA ROSA CHOQUE / CARMIM / PINK ---
     # Protege cores como R: 244, G: 5, B: 81 para não perderem o tom rosado e virarem laranja
-    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8 and b > g * 1.5:
+    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8:
         # Mantém a forte presença do vermelho, corta o verde e reforça o azul
         fator_brilho = 220.0 / max(r, 1) if r > 220 else 1.0
         r_mod = min(255, int(r * fator_brilho))

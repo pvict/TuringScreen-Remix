@@ -66,7 +66,7 @@ class FundoDecoder:
 class Codificador:
     """ffmpeg em tempo real: recebe quadros RGB, entrega H.264 (Annex B)."""
 
-    def __init__(self, fps=30, kbps=2500, gop=15, log=None):
+    def __init__(self, fps=30, kbps=2500, gop=30, log=None):
         self.proc = subprocess.Popen(
             ["ffmpeg", "-loglevel", "warning",
              "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{LADO}x{LADO}",
@@ -197,7 +197,7 @@ class EnviadorUSB(threading.Thread):
 
 
 class PipelineAoVivo:
-    def __init__(self, dev, gerar_quadro, fps=30, kbps=1500, gop=15, parar=None,
+    def __init__(self, dev, gerar_quadro, fps=30, kbps=1500, gop=30, parar=None,
                  usar_delay=False, max_lote=MAX_LOTE, log=None):
         self.fps = fps
         self.parar = parar or threading.Event()

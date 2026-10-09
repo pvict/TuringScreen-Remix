@@ -13,7 +13,7 @@ perfil PERFIL_OCIOSO do OpenRGB.
 Escritas gentis com o controlador da placa (ASRock B450M Steel Legend):
   - só as zonas listadas em ZONAS são escritas (uma escrita por zona a cada passo
     do fade); as demais não são tocadas;
-  - aguarda INTERVALO_ZONAS entre gravações de cores diferentes;
+  - no máximo ~1/FADE_INTERVALO escritas por segundo, e só quando a cor muda;
   - o perfil é lido uma única vez e guardado em ARQUIVO_PERFIL; reconectar NÃO
     recarrega o perfil (load_profile mexe em todos os dispositivos). Apague o
     arquivo, ou use RELER_PERFIL = True, para ler de novo.
@@ -42,7 +42,7 @@ COR_PADRAO = (255, 255, 255)    # usada se o perfil não for encontrado
 # --- TRANSITION RESPOSTA RÁPIDA E FLUIDA ---
 FADE_PASSOS = 12        # Um meio-termo seguro para a ASRock
 FADE_INTERVALO = 0.0    # O intervalo por passo pode ser zero, pois a trava será por zona
-INTERVALO_ZONAS = 0.10  # 100ms entre gravações para reduzir a carga no controlador
+INTERVALO_ZONAS = 0.02  # NOVO: 20ms de tempo de processamento físico para a placa-mãe respirar
 CHECA_A_CADA = 0.05     # Resposta quase instantânea ao trocar de música
 ESPERA_ERRO = 10                 # segundos antes de tentar reconectar
 PROTOCOLO = 3                   # 3 evita a espera de ~10 s do pedido de plugins
@@ -70,7 +70,7 @@ def realcar(cor):
 
     # --- TRATAMENTO PARA ROSA CHOQUE / CARMIM / PINK ---
     # Protege cores como R: 244, G: 5, B: 81 para não perderem o tom rosado e virarem laranja
-    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8 and b > g * 1.5:
+    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8:
         # Mantém a forte presença do vermelho, corta o verde e reforça o azul
         fator_brilho = 220.0 / max(r, 1) if r > 220 else 1.0
         r_mod = min(255, int(r * fator_brilho))
@@ -304,18 +304,9 @@ def _laco(estado, brilho_para, parar, log):
                     for chave, _d, z in zonas:
                         c = cores[chave]
                         if escrito.get(chave) != c:     # só escreve se o valor do passo mudou
-                            cor_resumo = c[0] if c else None
-                            t_envio = time.monotonic()
-                            log(f"openrgb: enviando zona={chave} leds={len(c)} primeira_cor={cor_resumo} etapa={i}/{passos}")
-                            try:
-                                z.set_colors([RGBColor(*x) for x in c])
-                            except Exception as exc:
-                                log(f"openrgb: FALHA ao enviar zona={chave} etapa={i}/{passos} cor={cor_resumo}: {type(exc).__name__}: {exc}")
-                                raise
-                            duracao = time.monotonic() - t_envio
+                            z.set_colors([RGBColor(*x) for x in c])
                             escrito[chave] = c
-                            log(f"openrgb: envio concluído zona={chave} etapa={i}/{passos} duração={duracao:.3f}s")
-                            # Pausa entre gravações para reduzir a carga sobre o controlador.
+                            # A TRAVA DE SEGURANÇA DO FIRMWARE:
                             time.sleep(INTERVALO_ZONAS)
                     
                     if i < passos and parar.wait(FADE_INTERVALO):

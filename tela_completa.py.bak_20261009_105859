@@ -168,7 +168,6 @@ _cache_halo_img = None
 
 _cache_vol_anim = None
 _cache_vol_opacidade = 0.0
-_cache_hud_glow_masks = {}
 
 _transicao_musica_atual = None
 _capa_anterior = None
@@ -274,7 +273,7 @@ def renderizar(snap):
         _prog_suave += (pos_alvo - _prog_suave) * 0.25
         
         frac = min(max(_prog_suave / duracao, 0), 1)
-        ang_fim = -90 + 360 * frac
+        ang_fim = -90 + int(360 * frac)
 
         # 2. Arco ativo principal com transição ultra suave
         d.arc(
@@ -429,38 +428,33 @@ def renderizar(snap):
             
             # --- EFEITO DE GLOW OTIMIZADO (ALTA VISIBILIDADE & ZERO LAG) ---
             # Criamos uma camada miniatura (120x120, um quarto do tamanho) para o desfoque voar no processamento
-            # Reutiliza a máscara desfocada; ela só depende do número de marcas ativas.
-            ticks_ativos = sum(1 for i in range(num_ticks) if i / (num_ticks - 1) <= vol_percentual)
-            mascara_glow = _cache_hud_glow_masks.get(ticks_ativos)
-            if mascara_glow is None:
-                layer_glow_mini = Image.new("L", (120, 120), 0)
-                d_glow_mini = ImageDraw.Draw(layer_glow_mini)
-                raio_vol_mini = raio_vol / 4.0
-                tamanho_tick_mini = tamanho_tick / 4.0
-                espessura_tick_mini = max(1, espessura_tick / 4.0)
-                cx_p, cy_p = 60, 60
-                for i in range(ticks_ativos):
-                    frac = i / (num_ticks - 1)
+            layer_glow_mini = Image.new("RGBA", (120, 120), (0, 0, 0, 0))
+            d_glow_mini = ImageDraw.Draw(layer_glow_mini)
+            
+            cor_glow = (cor_ativa[0], cor_ativa[1], cor_ativa[2], opac) if cor_destaque else (255, 255, 255, opac)
+            
+            raio_vol_mini = raio_vol / 4.0
+            tamanho_tick_mini = tamanho_tick / 4.0
+            espessura_tick_mini = max(1, espessura_tick / 4.0)
+            cx_p, cy_p = 60, 60
+            
+            for i in range(num_ticks):
+                frac = i / (num_ticks - 1)
+                if frac <= vol_percentual:
                     ang_deg = angulo_inicio + (angulo_fim - angulo_inicio) * frac
                     ang_rad = math.radians(ang_deg)
+                    
                     x_in = cx_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.cos(ang_rad)
                     y_in = cy_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.sin(ang_rad)
                     x_out = cx_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.cos(ang_rad)
                     y_out = cy_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.sin(ang_rad)
-                    d_glow_mini.line([(x_in, y_in), (x_out, y_out)], fill=255,
-                                     width=int(espessura_tick_mini + 2))
-                mascara_glow = layer_glow_mini.filter(ImageFilter.GaussianBlur(4)).resize(
-                    (480, 480), Image.BILINEAR
-                )
-                _cache_hud_glow_masks[ticks_ativos] = mascara_glow
-
-            cor_glow = (cor_ativa[0], cor_ativa[1], cor_ativa[2], 255)
-            layer_glow = Image.new("RGBA", (480, 480), cor_glow)
-            if opac < 255:
-                mascara_frame = mascara_glow.point(lambda v: v * opac // 255)
-            else:
-                mascara_frame = mascara_glow
-            layer_glow.putalpha(mascara_frame)
+                    
+                    d_glow_mini.line([(x_in, y_in), (x_out, y_out)], fill=cor_glow, width=int(espessura_tick_mini + 2))
+            
+            # Desfoque super rápido numa imagem pequena e expansão suave para o tamanho total (480x480)
+            layer_glow_mini = layer_glow_mini.filter(ImageFilter.GaussianBlur(4))
+            layer_glow = layer_glow_mini.resize((480, 480), Image.BILINEAR)
+            
             # Compõe o glow expansivo e intenso por trás dos ticks nítidos
             img = Image.alpha_composite(img, layer_glow)
             img = Image.alpha_composite(img, layer_hud)
@@ -729,10 +723,8 @@ def sessao_usb():
 
         log(f"tela conectada - brilho inicial: {brilho}%")
 
-        fundo_musica = ao_vivo.FundoDecoder(
-            ARQUIVO_MUSICA, FPS, log=log, nome="fundo da música")
-        fundo_ocioso = ao_vivo.FundoDecoder(
-            ARQUIVO_BACKGROUND, FPS, log=log, nome="fundo ocioso")
+        fundo_musica = ao_vivo.FundoDecoder(ARQUIVO_MUSICA, FPS)
+        fundo_ocioso = ao_vivo.FundoDecoder(ARQUIVO_BACKGROUND, FPS)
         painel = Painel(fundo_musica, fundo_ocioso, brilho)
 
         # O pipeline dá parar.set() no próprio evento ao terminar (inclusive por erro);
@@ -747,7 +739,7 @@ def sessao_usb():
         threading.Thread(target=ponte, daemon=True).start()
 
         pipe = ao_vivo.PipelineAoVivo(
-            dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao, log=log)
+            dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao)
         painel.pipe = pipe
         try:
             pipe.rodar()

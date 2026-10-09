@@ -13,7 +13,7 @@ perfil PERFIL_OCIOSO do OpenRGB.
 Escritas gentis com o controlador da placa (ASRock B450M Steel Legend):
   - só as zonas listadas em ZONAS são escritas (uma escrita por zona a cada passo
     do fade); as demais não são tocadas;
-  - aguarda INTERVALO_ZONAS entre gravações de cores diferentes;
+  - no máximo ~1/FADE_INTERVALO escritas por segundo, e só quando a cor muda;
   - o perfil é lido uma única vez e guardado em ARQUIVO_PERFIL; reconectar NÃO
     recarrega o perfil (load_profile mexe em todos os dispositivos). Apague o
     arquivo, ou use RELER_PERFIL = True, para ler de novo.
@@ -37,13 +37,12 @@ DISPOSITIVOS = ["ASRock"]       # trechos do nome dos dispositivos; None = todos
 ZONAS = ["Addressable Header", "PCH", "IO Cover"]  # trechos do nome das zonas escritas; None = todas
 ARQUIVO_PERFIL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "perfil_ocioso.json")
 RELER_PERFIL = False            # True = ignora o cache e recarrega o perfil no OpenRGB
-PERFIL_OCIOSO = 'purple rain'  # perfil do OpenRGB sem música; None = COR_PADRAO
+PERFIL_OCIOSO = None  # perfil do OpenRGB sem música; None = COR_PADRAO
 COR_PADRAO = (255, 255, 255)    # usada se o perfil não for encontrado
-# --- TRANSITION RESPOSTA RÁPIDA E FLUIDA ---
-FADE_PASSOS = 12        # Um meio-termo seguro para a ASRock
-FADE_INTERVALO = 0.0    # O intervalo por passo pode ser zero, pois a trava será por zona
-INTERVALO_ZONAS = 0.10  # 100ms entre gravações para reduzir a carga no controlador
-CHECA_A_CADA = 0.05     # Resposta quase instantânea ao trocar de música
+# Aumentamos o número de passos e reduzimos o intervalo para ficar extremamente fluido (60 FPS visual)
+FADE_PASSOS = 10        # Antes era 20; mais micro-passos geram uma curva contínua
+FADE_INTERVALO = 0.5   # 0.02s = 20ms entre cada atualização (~50 atualizações por segundo)
+CHECA_A_CADA = 0.2      # Checa atualizações do estado mais frequentemente[cite: 2]
 ESPERA_ERRO = 10                 # segundos antes de tentar reconectar
 PROTOCOLO = 3                   # 3 evita a espera de ~10 s do pedido de plugins
 SATURACAO_MIN = 0.85             # Sobe de 0.65 para 0.85 -> remove o tom "lavado/rosa" dos LEDs
@@ -59,25 +58,6 @@ def realcar(cor):
         print(f"[DEBUG CORES] Original lido -> R: {r}, G: {g}, B: {b}")
         _ultima_cor_debug = cor
     
-    # --- TRATAMENTO PARA ROXO / MAGENTA (Ex: Graduation - Kanye West) ---
-    # Protege tons onde Vermelho e Azul são altos e próximos para não caírem no bloco do vermelho
-    if r > 100 and b > 80 and abs(r - b) < 80 and g < min(r, b) * 0.8:
-        fator_brilho = 180.0 / max(r, b) if max(r, b) < 180 else 1.0
-        r_mod = min(255, int(r * fator_brilho))
-        g_mod = int(g * 0.2)  
-        b_mod = min(255, int(b * fator_brilho * 1.15)) 
-        return r_mod, g_mod, b_mod
-
-    # --- TRATAMENTO PARA ROSA CHOQUE / CARMIM / PINK ---
-    # Protege cores como R: 244, G: 5, B: 81 para não perderem o tom rosado e virarem laranja
-    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8 and b > g * 1.5:
-        # Mantém a forte presença do vermelho, corta o verde e reforça o azul
-        fator_brilho = 220.0 / max(r, 1) if r > 220 else 1.0
-        r_mod = min(255, int(r * fator_brilho))
-        g_mod = 0  # Corta o verde a zero para anular qualquer hipótese de o LED puxar para laranja ou amarelo
-        b_mod = min(255, int(b * 1.3 * fator_brilho)) # Reforça o azul físico para manter o aspeto "pink/carmim"
-        return r_mod, g_mod, b_mod
-
     # --- TRATAMENTO PARA TONS CIANO / AZUL-ESVERDEADO ESCURO ---
     # Se o Verde e o Azul estão altos e próximos, mas o vermelho é menor (evita o ciano estourado)
     if abs(g - b) < 15 and g > 40 and b > 40 and r < g:
@@ -162,24 +142,17 @@ def cores_alvo(estado, brilho, zonas, perfil):
     """Cores desejadas por LED de cada zona, chave = 'dispositivo|zona'."""
     fator = max(0, min(100, brilho)) / 100
     tocando = estado["musica"] is not None
-    
-    # Se não está tocando, evita completamente o processamento da capa e usa a cor padrão/ociosa de forma limpa
-    if not tocando:
-        alvo = {}
-        for chave, _d, z in zonas:
-            n = len(z.leds)
-            base = perfil.get(chave)
-            if base is None or len(base) != n:
-                base = [COR_PADRAO] * n
-            alvo[chave] = [_escalar(c, fator) for c in base]
-        return alvo
-
     cor = estado.get("cor_viva") or estado["cor_capa"]
-    album = realcar(cor)
+    album = realcar(cor) if tocando else None
     alvo = {}
     for chave, _d, z in zonas:
         n = len(z.leds)
-        base = [album] * n
+        if tocando:
+            base = [album] * n
+        else:
+            base = perfil.get(chave)
+            if base is None or len(base) != n:
+                base = [COR_PADRAO] * n
         alvo[chave] = [_escalar(c, fator) for c in base]
     return alvo
 
@@ -288,41 +261,19 @@ def _laco(estado, brilho_para, parar, log):
                 ultimo_erro = ""
 
             novo = cores_alvo(estado, brilho_para(datetime.datetime.now()), zonas, perfil)
-            
             if novo != atual:
-                # Se já tínhamos uma cor sendo exibida, a transição parte da cor ATUAL exata de onde parou
-                inicio = atual if atual is not None else novo
                 passos = 1 if atual is None else FADE_PASSOS
-                
+                inicio = novo if atual is None else atual
                 for i in range(1, passos + 1):
-                    # Se a música mudar durante o fade, atualiza o alvo suavemente sem quebrar
-                    alvo_momento = cores_alvo(estado, brilho_para(datetime.datetime.now()), zonas, perfil)
-                    if alvo_momento != novo:
-                        novo = alvo_momento
-
                     cores = _misturar(inicio, novo, i / passos)
                     for chave, _d, z in zonas:
                         c = cores[chave]
-                        if escrito.get(chave) != c:     # só escreve se o valor do passo mudou
-                            cor_resumo = c[0] if c else None
-                            t_envio = time.monotonic()
-                            log(f"openrgb: enviando zona={chave} leds={len(c)} primeira_cor={cor_resumo} etapa={i}/{passos}")
-                            try:
-                                z.set_colors([RGBColor(*x) for x in c])
-                            except Exception as exc:
-                                log(f"openrgb: FALHA ao enviar zona={chave} etapa={i}/{passos} cor={cor_resumo}: {type(exc).__name__}: {exc}")
-                                raise
-                            duracao = time.monotonic() - t_envio
+                        if escrito.get(chave) != c:     # só escreve se a cor mudou
+                            z.set_colors([RGBColor(*x) for x in c])
                             escrito[chave] = c
-                            log(f"openrgb: envio concluído zona={chave} etapa={i}/{passos} duração={duracao:.3f}s")
-                            # Pausa entre gravações para reduzir a carga sobre o controlador.
-                            time.sleep(INTERVALO_ZONAS)
-                    
                     if i < passos and parar.wait(FADE_INTERVALO):
                         return
-                
                 atual = novo
-
         except Exception as exc:
             if str(exc) != ultimo_erro:
                 ultimo_erro = str(exc)
@@ -336,6 +287,7 @@ def _laco(estado, brilho_para, parar, log):
             parar.wait(ESPERA_ERRO)
             continue
         parar.wait(CHECA_A_CADA)
+
 
 def iniciar(estado, brilho_para, parar, log):
     t = threading.Thread(

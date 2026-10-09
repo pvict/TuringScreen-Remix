@@ -23,31 +23,17 @@ LIMITE_FILA = 60            # acima disso, quem gera quadros espera (não perde 
 MAX_LOTE = 160_000          # máximo de bytes por comando 121 (a CLI usa 202752)
 
 
-def _monitorar_stderr(proc, nome, log):
-    """Drena o stderr do FFmpeg em thread própria e registra avisos/erros."""
-    def ler():
-        if proc.stderr is None:
-            return
-        for bruto in iter(proc.stderr.readline, b""):
-            mensagem = bruto.decode("utf-8", errors="replace").strip()
-            if mensagem and log:
-                log(f"ffmpeg {nome}: {mensagem}")
-
-    threading.Thread(target=ler, daemon=True).start()
-
-
 class FundoDecoder:
     """Lê quadros de um vídeo em loop (ffmpeg), já em 480x480 RGB."""
 
-    def __init__(self, caminho, fps=30, log=None, nome="fundo"):
+    def __init__(self, caminho, fps=30):
         self.proc = subprocess.Popen(
-            ["ffmpeg", "-loglevel", "warning", "-stream_loop", "-1", "-i", caminho,
+            ["ffmpeg", "-loglevel", "error", "-stream_loop", "-1", "-i", caminho,
              "-vf", f"scale={LADO}:{LADO}", "-r", str(fps),
              "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             creationflags=SEM_JANELA,
         )
-        _monitorar_stderr(self.proc, nome, log)
 
     def proximo(self):
         dados = self.proc.stdout.read(BYTES_QUADRO)
@@ -66,9 +52,9 @@ class FundoDecoder:
 class Codificador:
     """ffmpeg em tempo real: recebe quadros RGB, entrega H.264 (Annex B)."""
 
-    def __init__(self, fps=30, kbps=2500, gop=15, log=None):
+    def __init__(self, fps=30, kbps=2500, gop=30):
         self.proc = subprocess.Popen(
-            ["ffmpeg", "-loglevel", "warning",
+            ["ffmpeg", "-loglevel", "error",
              "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{LADO}x{LADO}",
              "-r", str(fps), "-i", "-",
              "-c:v", "h264_nvenc", "-preset", "p4", "-tune", "ull", "-zerolatency", "1",
@@ -76,10 +62,9 @@ class Codificador:
              "-g", str(gop), "-no-scenecut", "1",
              "-rc", "cbr", "-b:v", f"{kbps}k", "-maxrate", f"{kbps}k", "-bufsize", f"{kbps // 2}k",
              "-flush_packets", "1", "-f", "h264", "-"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             creationflags=SEM_JANELA,
         )
-        _monitorar_stderr(self.proc, "codificador NVENC", log)
         self.saida = queue.Queue()
         threading.Thread(target=self._ler, daemon=True).start()
 
@@ -119,7 +104,6 @@ class EnviadorUSB(threading.Thread):
         self.dev, self.cod, self.parar = dev, codificador, parar
         self.usar_delay, self.max_lote = usar_delay, max_lote
         self.log = log
-        self._ultimo_log_video = 0.0
         self.comandos = queue.Queue()
         self.erro = None
         self.m = {"comandos": 0, "bytes": 0, "delays": 0, "t_delay": 0.0, "t_envio": 0.0,
@@ -164,17 +148,11 @@ class EnviadorUSB(threading.Thread):
                 self.m["bytes"] += len(dados)
                 lat = t1 - t_chegada
                 status = resp[8] if resp is not None and len(resp) >= 9 else None
-                fila = self.cod.saida.qsize()
-                agora_log = time.monotonic()
-                anomalia = status is None or status < 3 or fila >= 15 or lat >= 0.30
-                # Amostragem mais próxima para correlacionar falhas visuais com o USB.
-                intervalo_log = 0.5 if anomalia else 1.0
-                if self.log and agora_log - self._ultimo_log_video >= intervalo_log:
+                if self.log and (status is None or status <= 3):
                     self.log(
                         f"vídeo USB: resposta={status} lote={len(dados)} bytes "
-                        f"fila={fila} latência={lat:.3f}s suspeito={anomalia}"
+                        f"fila={self.cod.saida.qsize()} latência={lat:.3f}s"
                     )
-                    self._ultimo_log_video = agora_log
                 self.m["lat_soma"] += lat
                 self.m["lat_max"] = max(self.m["lat_max"], lat)
                 if resp is None:
@@ -197,12 +175,12 @@ class EnviadorUSB(threading.Thread):
 
 
 class PipelineAoVivo:
-    def __init__(self, dev, gerar_quadro, fps=30, kbps=1500, gop=15, parar=None,
+    def __init__(self, dev, gerar_quadro, fps=30, kbps=1500, gop=30, parar=None,
                  usar_delay=False, max_lote=MAX_LOTE, log=None):
         self.fps = fps
         self.parar = parar or threading.Event()
         self.gerar_quadro = gerar_quadro
-        self.cod = Codificador(fps, kbps, gop, log)
+        self.cod = Codificador(fps, kbps, gop)
         self.env = EnviadorUSB(dev, self.cod, self.parar, usar_delay, max_lote, log)
         self.quadros = 0
         self.t_gerar = 0.0

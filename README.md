@@ -1,4 +1,4 @@
-<h1 align="center">🎵 Turing Vinyl</h1>
+<h1 align="center">🎵 Turing Vinyl - Spotify-powered </h1>
 
 <p align="center"><a href="README.pt-BR.md">Português</a> · <a href="README.md">English</a></p>
 

@@ -6,6 +6,8 @@ import logging
 import os
 import threading
 import time
+import sys
+import contextlib
 
 import libusb_package
 import usb.util
@@ -25,6 +27,19 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # silencia o aviso repetido da CLI (ela espera a tela 8,8 de 480x1920); erros continuam aparecendo
 logging.getLogger("turingscreencli").setLevel(logging.ERROR)
+logging.getLogger("usb").setLevel(logging.CRITICAL)
+logging.getLogger("pyusb").setLevel(logging.CRITICAL)
+
+# Função auxiliar para silenciar a consola temporariamente
+@contextlib.contextmanager
+def silenciar_saida():
+    with open(os.devnull, "w") as devnull:
+        old_stderr = sys.stderr
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stderr = old_stderr
 
 ARQUIVO_MUSICA = "video_tela.mp4"       # Vídeo com o vinil/efeitos quando toca música
 ARQUIVO_BACKGROUND = "video_fundo.mp4"  # Vídeo de fundo em loop quando nada está a tocar
@@ -142,8 +157,13 @@ _cache_marquee_titulo = None
 _cache_marquee_img = None
 _cache_marquee_largura = 0
 
+_cache_halo_cor = None
+_cache_halo_img = None
+    
+
 def renderizar(snap):
     global _cache_marquee_titulo, _cache_marquee_img, _cache_marquee_largura
+    global _cache_halo_cor, _cache_halo_img  # <--- Adicionar aqui
 
     img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -152,25 +172,42 @@ def renderizar(snap):
     raio_anel = (TAM_CAPA // 2) + 18   
 
     musica = snap["musica"]
-    cor_destaque = snap.get("cor_capa", (30, 215, 96, 255))
+    cor_destaque = snap.get("cor_viva") or snap.get("cor_capa", (30, 215, 96, 255))
     
-    # --- HALO DE LUZ DINÂMICO ---
+    # --- HALO DE LUZ DINÂMICO (COM CACHE) ---
     if musica and cor_destaque:
-        camada_halo = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
-        d_halo = ImageDraw.Draw(camada_halo)
-        
-        raio_halo = raio_anel + 25
-        cor_halo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 120)
-        
-        d_halo.ellipse(
-            (cx - raio_halo, cy - raio_halo, cx + raio_halo, cy + raio_halo),
-            fill=cor_halo
-        )
-        
-        from PIL import ImageFilter
-        camada_halo = camada_halo.filter(ImageFilter.GaussianBlur(30))
-        img = Image.alpha_composite(img, camada_halo)
-        d = ImageDraw.Draw(img)
+        # Se a cor de destaque mudou (nova música), recalcula o blur UMA ÚNICA VEZ
+        if _cache_halo_cor != cor_destaque:
+            _cache_halo_cor = cor_destaque
+            
+            # Gera a camada pequena para o blur otimizado (120x120)
+            camada_halo = Image.new("RGBA", (120, 120), (0, 0, 0, 0))
+            d_halo = ImageDraw.Draw(camada_halo)
+            
+            cx_p, cy_p = 60, 60
+            raio_halo_p = int((raio_anel + 25) / 4)
+            cor_halo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 160)
+            
+            d_halo.ellipse(
+                (cx_p - raio_halo_p, cy_p - raio_halo_p, cx_p + raio_halo_p, cy_p + raio_halo_p),
+                fill=cor_halo
+            )
+            
+            from PIL import ImageFilter
+            # Aplica o blur apenas 1 vez por música
+            camada_halo = camada_halo.filter(ImageFilter.GaussianBlur(12))
+            
+            # Guarda a imagem final desfocada no cache
+            _cache_halo_img = camada_halo.resize((480, 480), Image.BILINEAR)
+
+        # Reutiliza instantaneamente a imagem desfocada sem gastar CPU
+        if _cache_halo_img is not None:
+            img = Image.alpha_composite(img, _cache_halo_img)
+            d = ImageDraw.Draw(img)
+    else:
+        # Reseta o cache se não estiver a tocar nada
+        _cache_halo_cor = None
+        _cache_halo_img = None
 
     # 1. Trilha de fundo do anel
     d.arc(
@@ -260,12 +297,30 @@ def sessao_usb():
 
         for n in (111, 112, 13):
             cmd(n)
+
+        with silenciar_saida():
+            for n in (111, 112, 13):
+                try:
+                    cmd(n)
+                    time.sleep(0.05)
+                except Exception:
+                    pass
+
+            brilho = brilho_para(datetime.datetime.now())
+
+            try:
+                operations.send_brightness_command(dev, brilho)
+                time.sleep(0.05)
+                cmd(41)
+                time.sleep(0.05)
+                operations.clear_image(dev)
+                time.sleep(0.05)
+                operations.send_frame_rate_command(dev, FPS)
+                time.sleep(0.05)
+            except Exception:
+                pass
+        # --- FIM DO SILENCIAMENTO ---
         
-        brilho = brilho_para(datetime.datetime.now())
-        operations.send_brightness_command(dev, brilho)
-        cmd(41)
-        operations.clear_image(dev)
-        operations.send_frame_rate_command(dev, FPS)
         log(f"tela conectada - brilho inicial: {brilho}%")
 
         ultimo_check = 0.0
@@ -413,15 +468,22 @@ async def vigiar_spotify():
             else:
                 info = await sessao.try_get_media_properties_async()
                 nova = (info.title, info.artist)
+                
+                # Se mudou de música, atualiza o título/artista mas NÃO apaga a capa antiga de imediato!
                 if nova != chave:
-                    chave, tentativas = nova, 0
-                    estado["capa"] = None
-                    estado["cor_capa"] = (30, 215, 96, 255)
-                    estado["cor_viva"] = (30, 215, 96, 255)
-                    
-                if estado["capa"] is None and tentativas < 3:
+                    chave = nova
+                    tentativas = 0
+                    precisa_carregar_capa = True
+                else:
+                    precisa_carregar_capa = estado["capa"] is None
+
+                if precisa_carregar_capa and tentativas < 2:
                     tentativas += 1
+                    # Reduzido de 0.2 para 0.08 -> Carrega a capa sem esperar tanto
+                    await asyncio.sleep(0.08)
                     capa_img, cor_capa, cor_viva = await ler_capa(info)
+                    
+                    # Só substitui a imagem e as cores quando a nova capa estiver 100% pronta!
                     if capa_img is not None:
                         estado["capa"] = capa_img
                         estado["cor_capa"] = cor_capa
@@ -447,7 +509,8 @@ async def vigiar_spotify():
             if str(exc) != ultimo_erro:
                 ultimo_erro = str(exc)
                 log(f"spotify/midia: {exc}")
-        await asyncio.sleep(2)
+
+        await asyncio.sleep(0.8)
 
 
 async def main_async():

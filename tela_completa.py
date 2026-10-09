@@ -3,6 +3,7 @@ import colorsys
 import datetime
 import io
 import logging
+import math
 import os
 import threading
 import time
@@ -56,7 +57,7 @@ TAM_CAPA = 240
 ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
-KBPS = 10000              # taxa do vídeo H.264 enviado à tela (mais alto = texto mais nítido)
+KBPS = 5000               # reduz a fila USB mantendo o alvo de 60 FPS
 
 parar = threading.Event()
 estado = {
@@ -428,7 +429,6 @@ def renderizar(snap):
         if hud_a is None:
             hud_a = 1.0 if agora < exibir_ate else 0.0
         if hud_a > 0.01:
-            import math
             from PIL import ImageFilter
             
             opac = int(255 * hud_a)
@@ -556,6 +556,8 @@ class Painel:
         self.t_pausa = None
         self.p = 0.0
         self.hud = 0.0
+        self._ultimo_log_hud = 0.0
+        self._hud_render_max_ms = 0.0
         self._zerar()
 
     def _zerar(self):
@@ -707,7 +709,23 @@ class Painel:
         snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor,
                     texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
                     modo_playlist_texto=self.modo_playlist_texto)
-        return renderizar(snap)
+        inicio_render = time.perf_counter()
+        quadro = renderizar(snap)
+        render_ms = (time.perf_counter() - inicio_render) * 1000
+
+        if self.hud > 0.01:
+            self._hud_render_max_ms = max(self._hud_render_max_ms, render_ms)
+            agora_log = time.monotonic()
+            if agora_log - self._ultimo_log_hud >= 1.0:
+                fila_video = self.pipe.cod.saida.qsize() if self.pipe else -1
+                log(
+                    f"diagnóstico HUD volume: render_máx={self._hud_render_max_ms:.1f}ms "
+                    f"fila_vídeo={fila_video}"
+                )
+                self._ultimo_log_hud = agora_log
+                self._hud_render_max_ms = 0.0
+
+        return quadro
 
     def quadro(self, agora):
         dt = 0.0 if self.t_ultimo is None else min(max(agora - self.t_ultimo, 0.0), 0.2)
@@ -882,7 +900,8 @@ async def ler_capa(info):
 
 async def vigiar_spotify():
     mgr = await MediaManager.request_async()
-    chave, tentativas, ultimo_erro = None, 0, ""
+    chave, capa_carregada_para, tentativas, ultimo_erro = None, None, 0, ""
+    proxima_tentativa_capa = 0.0
     while not parar.is_set():
         try:
             sessao = None
@@ -914,18 +933,27 @@ async def vigiar_spotify():
                 estado["tocando"] = False
                 estado["midia_pronta"] = True
                 chave = None
+                capa_carregada_para = None
+                tentativas = 0
+                proxima_tentativa_capa = 0.0
             else:
                 info = await sessao.try_get_media_properties_async()
                 nova = (info.title, info.artist)
                 
                 if nova != chave:
                     chave = nova
+                    capa_carregada_para = None
                     tentativas = 0
-                    precisa_carregar_capa = True
-                else:
-                    precisa_carregar_capa = estado.get("capa") is None
+                    proxima_tentativa_capa = 0.0
 
-                if precisa_carregar_capa and tentativas < 2:
+                # A miniatura pode chegar depois dos metadados da faixa. Tenta
+                # novamente com intervalo, sem repetir o trabalho a cada polling.
+                agora_capa = time.monotonic()
+                precisa_carregar_capa = (
+                    capa_carregada_para != nova
+                    and agora_capa >= proxima_tentativa_capa
+                )
+                if precisa_carregar_capa:
                     tentativas += 1
                     await asyncio.sleep(0.08)
                     capa_img, cor_capa, cor_viva = await ler_capa(info)
@@ -934,6 +962,9 @@ async def vigiar_spotify():
                         estado["capa"] = capa_img
                         estado["cor_capa"] = cor_capa
                         estado["cor_viva"] = cor_viva
+                        capa_carregada_para = nova
+                    else:
+                        proxima_tentativa_capa = time.monotonic() + 1.0
 
                 tl = sessao.get_timeline_properties()
                 dur = (tl.end_time - tl.start_time).total_seconds()

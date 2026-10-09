@@ -59,6 +59,19 @@ def realcar(cor):
     if cor != _ultima_cor_debug:
         print(f"[DEBUG CORES] Original lido -> R: {r}, G: {g}, B: {b}")
         _ultima_cor_debug = cor
+
+    # --- TRATAMENTO AUTOMÁTICO PARA ROSAS DE TOM MAIS AVERMELHADO ---
+    # Identifica rosas pelo matiz antes das regras de vermelho/roxo. Isso inclui
+    # tons como (254, 95, 153), sem puxar laranjas/salmões cujo matiz é mais quente.
+    h_original, s_original, _ = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+    if r > 120 and 0.92 <= h_original <= 0.985 and s_original >= 0.25 and b > g:
+        # Preserva um pouco do verde e reforça menos o azul para um rosa mais claro,
+        # evitando que o resultado se aproxime demais do roxo/magenta.
+        fator_brilho = 255.0 / max(r, 1) if r > 220 else 1.0
+        r_mod = min(255, int(r * fator_brilho))
+        g_mod = min(255, int(g * 0.85))
+        b_mod = min(255, int(b * 1.05 * fator_brilho))
+        return r_mod, g_mod, b_mod
     
     # --- TRATAMENTO PARA ROXO / MAGENTA (Ex: Graduation - Kanye West) ---
     # Protege tons onde Vermelho e Azul são altos e próximos para não caírem no bloco do vermelho

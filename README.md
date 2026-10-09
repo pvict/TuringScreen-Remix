@@ -1,4 +1,5 @@
-<h1 align="center">🎵 Turing Vinyl - Spotify-powered</h1>
+<h1 align="center">🎵 Turing Vinyl - Spotify-powered <img width="480" height="480" alt="image" src="https://github.com/user-attachments/assets/74c29d97-2e72-4c2c-a14a-18cf9cc6bff3" />
+</h1>
 
 <p align="center"><a href="README.pt-BR.md">Português</a> · <a href="README.md">English</a></p>
 

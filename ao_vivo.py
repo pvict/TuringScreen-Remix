@@ -13,8 +13,6 @@ import subprocess
 import threading
 import time
 
-import usb.core
-import usb.util
 from PIL import Image
 
 LADO = 480
@@ -93,9 +91,7 @@ class Codificador:
             self.saida.put((time.monotonic(), dados))
 
     def enviar_quadro(self, img):
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        self.proc.stdin.write(img.tobytes())
+        self.proc.stdin.write(img.convert("RGB").tobytes())
         self.proc.stdin.flush()
 
     def fechar(self):
@@ -104,48 +100,6 @@ class Codificador:
             self.proc.wait(timeout=3)
         except Exception:
             self.proc.kill()
-
-
-class EscritaRapida:
-    """Escrita USB para o vídeo, sem a espera fixa de ~100 ms de write_to_device.
-
-    write_to_device chama read_flush depois de cada resposta, e essa leitura espera até
-    100 ms por dados que normalmente não chegam. Aqui os endpoints ficam em cache e o
-    descarte de resposta extra espera só alguns milissegundos. Se não achar os endpoints,
-    usa o write_to_device original."""
-
-    FLUSH_MS = 10
-
-    def __init__(self, dev, fallback):
-        self._fallback = fallback
-        self.out = self.inp = None
-        try:
-            intf = usb.util.find_descriptor(dev.get_active_configuration(), bInterfaceNumber=0)
-
-            def _sentido(sentido):
-                return lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == sentido
-
-            self.out = usb.util.find_descriptor(intf, custom_match=_sentido(usb.util.ENDPOINT_OUT))
-            self.inp = usb.util.find_descriptor(intf, custom_match=_sentido(usb.util.ENDPOINT_IN))
-        except Exception:
-            self.out = self.inp = None
-
-    def __call__(self, dev, dados, timeout=2000):
-        if self.out is None or self.inp is None:
-            return self._fallback(dev, dados, timeout)
-        try:
-            self.out.write(dados, timeout)
-        except usb.core.USBError:
-            return None
-        try:
-            resp = bytes(self.inp.read(512, timeout))
-        except usb.core.USBError:
-            return None
-        try:
-            self.inp.read(512, self.FLUSH_MS)   # descarta resposta extra sem esperar 100 ms
-        except usb.core.USBError:
-            pass
-        return resp
 
 
 class EnviadorUSB(threading.Thread):
@@ -161,15 +115,11 @@ class EnviadorUSB(threading.Thread):
         self._op = operations
         self._cabecalho = build_command_packet_header
         self._cifrar = encrypt_command_packet
-        self._escrever = EscritaRapida(dev, write_to_device)
+        self._escrever = write_to_device
         self.dev, self.cod, self.parar = dev, codificador, parar
         self.usar_delay, self.max_lote = usar_delay, max_lote
         self.log = log
         self._ultimo_log_video = 0.0
-        # Sobra de bytes que não coube no lote anterior (o H.264 é um fluxo de bytes,
-        # então pode ser cortado em qualquer ponto) e o instante de chegada dela.
-        self._resto = b""
-        self._t_resto = 0.0
         self.comandos = queue.Queue()
         self.erro = None
         self.m = {"comandos": 0, "bytes": 0, "delays": 0, "t_delay": 0.0, "t_envio": 0.0,
@@ -180,19 +130,10 @@ class EnviadorUSB(threading.Thread):
         self.comandos.put(funcao)
 
     def _lote(self):
-        """Junta o que já saiu do ffmpeg, mas nunca devolve mais que max_lote bytes.
-
-        O que passar do limite fica em self._resto e vai no próximo comando. Antes, o
-        último pedaço lido (até 64 KB) podia estourar max_lote e o comando passava do
-        que a tela aceita (a CLI usa 202752), o que corrompe o vídeo (mosaico)."""
-        if self._resto:
-            t_chegada, dados = self._t_resto, self._resto
-            self._resto = b""
-        else:
-            try:
-                t_chegada, dados = self.cod.saida.get(timeout=0.05)
-            except queue.Empty:
-                return None, None
+        try:
+            t_chegada, dados = self.cod.saida.get(timeout=0.05)
+        except queue.Empty:
+            return None, None
         partes = [dados]
         total = len(dados)
         while total < self.max_lote:
@@ -202,12 +143,7 @@ class EnviadorUSB(threading.Thread):
                 break
             partes.append(mais)
             total += len(mais)
-        tudo = b"".join(partes)
-        if len(tudo) > self.max_lote:
-            self._resto = tudo[self.max_lote:]
-            self._t_resto = t_chegada
-            tudo = tudo[:self.max_lote]
-        return t_chegada, tudo
+        return t_chegada, b"".join(partes)
 
     def run(self):
         falhas_seguidas = 0
@@ -272,42 +208,6 @@ class PipelineAoVivo:
         self.t_gerar = 0.0
         self.t_gerar_max = 0.0
         self.atrasos = 0   # vezes em que o gerador não chegou a tempo
-        self.log = log
-        self.contexto = None                 # função opcional que descreve o estado (para o log)
-        self.limite_lento = 1.0 / fps        # gerar um quadro além disso estoura o orçamento
-        self._jan = self._nova_janela()
-        self._t_jan = self._t_resumo = time.monotonic()
-
-    @staticmethod
-    def _nova_janela():
-        return {"n": 0, "soma": 0.0, "max": 0.0, "lentos": 0, "env_max": 0.0, "ctx_max": ""}
-
-    def _medir(self, dg, de):
-        """Acumula o tempo de gerar/enviar cada quadro e escreve um resumo no log."""
-        j = self._jan
-        j["n"] += 1
-        j["soma"] += dg
-        j["env_max"] = max(j["env_max"], de)
-        if dg > self.limite_lento:
-            j["lentos"] += 1
-        if dg > j["max"]:
-            j["max"] = dg
-            try:
-                j["ctx_max"] = self.contexto() if self.contexto else ""
-            except Exception:
-                j["ctx_max"] = ""
-        agora = time.monotonic()
-        if self.log and agora - self._t_jan >= 5.0:
-            if j["lentos"] or agora - self._t_resumo >= 30.0:
-                self.log(
-                    f"quadros: média={1000 * j['soma'] / max(j['n'], 1):.1f} ms "
-                    f"máx={1000 * j['max']:.0f} ms "
-                    f"lentos(>{1000 * self.limite_lento:.0f} ms)={j['lentos']}/{j['n']} "
-                    f"envio_ffmpeg_máx={1000 * j['env_max']:.0f} ms [pior: {j['ctx_max']}]"
-                )
-                self._t_resumo = agora
-            self._jan = self._nova_janela()
-            self._t_jan = agora
 
     def rodar(self, duracao=None):
         """Gera quadros no ritmo do fps até 'parar' ou 'duracao' s. Bloqueia."""
@@ -323,14 +223,10 @@ class PipelineAoVivo:
                     time.sleep(0.005)
                     continue
                 tg = time.monotonic()
-                quadro = self.gerar_quadro(tg)
+                self.cod.enviar_quadro(self.gerar_quadro(tg))
                 dtg = time.monotonic() - tg
-                te = time.monotonic()
-                self.cod.enviar_quadro(quadro)
-                dte = time.monotonic() - te
                 self.t_gerar += dtg
                 self.t_gerar_max = max(self.t_gerar_max, dtg)
-                self._medir(dtg, dte)
                 self.quadros += 1
                 prox += 1.0 / self.fps
                 espera = prox - time.monotonic()

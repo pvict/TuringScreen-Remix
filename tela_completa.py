@@ -727,14 +727,6 @@ class Painel:
 
         return quadro
 
-    def contexto(self):
-        """Resumo do estado do painel, usado só nas linhas de log de quadros lentos."""
-        return (
-            f"hud={self.hud > 0.01} transicao_capa={self.trans is not None} "
-            f"playlist={self.exibindo_playlist} texto_animando={self.t_texto is not None} "
-            f"p={self.p:.2f}"
-        )
-
     def quadro(self, agora):
         dt = 0.0 if self.t_ultimo is None else min(max(agora - self.t_ultimo, 0.0), 0.2)
         self.t_ultimo = agora
@@ -862,7 +854,6 @@ def sessao_usb():
         pipe = ao_vivo.PipelineAoVivo(
             dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao, log=log)
         painel.pipe = pipe
-        pipe.contexto = painel.contexto
         try:
             pipe.rodar()
         finally:

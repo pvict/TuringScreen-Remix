@@ -29,6 +29,14 @@ O **Turing Vinyl** transforma uma tela USB Turing Smart Screen em um display ani
 
 > Projeto pessoal em evolução, feito para uma configuração específica de hardware. A comunicação USB, o OpenRGB e a integração com o Spotify dependem do equipamento, dos drivers e das versões instaladas.
 
+## :camera: Projeto em funcionamento
+
+<p align="center">
+  <img src="docs/images/turing-vinyl-setup.png" alt="Turing Vinyl exibindo a capa de True Colors no display, com os LEDs do computador sincronizados" width="720">
+</p>
+
+<p align="center"><em>A tela exibe a faixa atual enquanto a iluminação do computador acompanha a experiência.</em></p>
+
 ## :star2: Recursos
 
 - Animações transmitidas à tela com taxa alvo de **60 quadros por segundo**.

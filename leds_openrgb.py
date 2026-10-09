@@ -43,6 +43,7 @@ COR_PADRAO = (255, 255, 255)    # usada se o perfil não for encontrado
 FADE_PASSOS = 12        # Um meio-termo seguro para a ASRock
 FADE_INTERVALO = 0.0    # O intervalo por passo pode ser zero, pois a trava será por zona
 INTERVALO_ZONAS = 0.10  # 100ms entre gravações para reduzir a carga no controlador
+INTERVALO_ADDRESSABLE_EXTRA = 0.20  # Limita a frequência de gravações no header ARGB durante fades
 CHECA_A_CADA = 0.05     # Resposta quase instantânea ao trocar de música
 ESPERA_ERRO = 10                 # segundos antes de tentar reconectar
 PROTOCOLO = 3                   # 3 evita a espera de ~10 s do pedido de plugins
@@ -68,9 +69,16 @@ def realcar(cor):
         b_mod = min(255, int(b * fator_brilho * 1.15)) 
         return r_mod, g_mod, b_mod
 
-    # --- TRATAMENTO PARA ROSA CHOQUE / CARMIM / PINK ---
-    # Protege cores como R: 244, G: 5, B: 81 para não perderem o tom rosado e virarem laranja
-    if r > 120 and g < 50 and r * 0.2 < b < r * 0.8 and b > g * 1.5:
+    # --- TRATAMENTO AUTOMÁTICO PARA ROSA / CARMIM ---
+    # Detecta rosa mesmo quando a capa contém bastante verde (ex.: 255, 76, 128).
+    # Os limites relativos mantêm laranjas/salmões fora deste ajuste; as demais
+    # calibrações e os fatores de saída deste ramo permanecem inalterados.
+    if (
+        r > 120
+        and g < r * 0.35
+        and r * 0.2 < b < r * 0.8
+        and b > g * 1.1
+    ):
         # Mantém a forte presença do vermelho, corta o verde e reforça o azul
         fator_brilho = 220.0 / max(r, 1) if r > 220 else 1.0
         r_mod = min(255, int(r * fator_brilho))
@@ -218,6 +226,7 @@ def _ler_perfil(cli, log):
     """Cor do perfil por zona. Usa o cache; só chama load_profile se não houver cache."""
     if not PERFIL_OCIOSO:
         return {}
+
     if not RELER_PERFIL and os.path.exists(ARQUIVO_PERFIL):
         try:
             with open(ARQUIVO_PERFIL, encoding="utf-8") as f:
@@ -331,6 +340,10 @@ def _laco(estado, brilho_para, parar, log):
                             log(f"openrgb: envio concluído zona={chave} etapa={i}/{passos} duração={duracao:.3f}s")
                             # Pausa entre gravações para reduzir a carga sobre o controlador.
                             time.sleep(INTERVALO_ZONAS)
+                            if passos > 1 and "addressable header" in z.name.lower():
+                                # Mantém os 12 passos do fade, limitando a cerca de 2 envios/s
+                                # para dar mais intervalo ao controlador da cadeia ARGB.
+                                time.sleep(INTERVALO_ADDRESSABLE_EXTRA)
                     
                     if i < passos and parar.wait(FADE_INTERVALO):
                         return

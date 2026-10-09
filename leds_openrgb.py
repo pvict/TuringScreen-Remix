@@ -11,9 +11,9 @@ Com música tocando, os LEDs seguem a cor da capa. Sem música, usam a cor do
 perfil PERFIL_OCIOSO do OpenRGB.
 
 Escritas gentis com o controlador da placa (ASRock B450M Steel Legend):
-  - só as zonas listadas em ZONAS são escritas (uma escrita por zona a cada passo
-    do fade); as demais não são tocadas;
-  - aguarda INTERVALO_ZONAS entre gravações de cores diferentes;
+  - reúne as zonas listadas em ZONAS em um envio por dispositivo por passo;
+    as demais conservam as cores informadas pelo OpenRGB;
+  - mantém uma pausa equivalente aos antigos envios separados;
   - o perfil é lido uma única vez e guardado em ARQUIVO_PERFIL; reconectar NÃO
     recarrega o perfil (load_profile mexe em todos os dispositivos). Apague o
     arquivo, ou use RELER_PERFIL = True, para ler de novo.
@@ -221,6 +221,47 @@ def _misturar(a, b, t):
     }
 
 
+def _enviar_etapa(zonas, cores, escrito, etapa, passos, parar, log):
+    """Um UPDATELEDS por placa; o driver ASRock já percorre todos os LEDs."""
+    dispositivos = []
+    for _chave_zona, dev, _zona in zonas:
+        if not any(dev is existente for existente in dispositivos):
+            dispositivos.append(dev)
+    for dev in dispositivos:
+        selecionadas = [(k, z) for k, d, z in zonas if d is dev]
+        alteradas = [(k, z) for k, z in selecionadas if escrito.get(k) != cores[k]]
+        if not alteradas:
+            continue
+        pacote = list(dev.colors)
+        if len(pacote) != len(dev.leds):
+            raise ValueError("OpenRGB: quantidade de cores da placa inconsistente")
+        offset = 0
+        for zona in dev.zones:
+            chave = _chave(dev, zona)
+            quantidade = len(zona.leds)
+            if chave in cores:
+                if len(cores[chave]) != quantidade:
+                    raise ValueError(f"OpenRGB: quantidade de cores inconsistente em {chave}")
+                pacote[offset:offset + quantidade] = [RGBColor(*c) for c in cores[chave]]
+            offset += quantidade
+        if offset != len(pacote):
+            raise ValueError("OpenRGB: mapa de zonas não corresponde aos LEDs da placa")
+        resumo = {k: cores[k][0] if cores[k] else None for k, _z in selecionadas}
+        log(f"openrgb: envio único dispositivo={dev.name} leds={len(pacote)} cores={resumo} etapa={etapa}/{passos}")
+        inicio_envio = time.monotonic()
+        dev.set_colors(pacote)
+        for chave, _zona in selecionadas:
+            escrito[chave] = list(cores[chave])
+        log(f"openrgb: envio único concluído etapa={etapa}/{passos} duração={time.monotonic() - inicio_envio:.3f}s")
+        # Mantém o ritmo anterior mesmo com apenas um pacote SDK.
+        intervalo = INTERVALO_ZONAS * len(selecionadas)
+        if passos > 1 and any("addressable header" in z.name.lower() for _k, z in selecionadas):
+            intervalo += INTERVALO_ADDRESSABLE_EXTRA
+        if parar.wait(intervalo):
+            return True
+    return False
+
+
 def _modo_fixo(dev):
     nomes = [m.name.lower() for m in dev.modes]
     for modo in ("direct", "static"):
@@ -329,39 +370,24 @@ def _laco(estado, brilho_para, parar, log):
                 # Se já tínhamos uma cor sendo exibida, a transição parte da cor ATUAL exata de onde parou
                 inicio = atual if atual is not None else novo
                 passos = 1 if atual is None else FADE_PASSOS
+                log(f"openrgb diagnóstico: início fade passos={passos} musica={estado.get('musica')!r} cor_capa={estado.get('cor_capa')} cor_viva={estado.get('cor_viva')} alvo={ {k: v[0] if v else None for k, v in novo.items()} }")
                 
                 for i in range(1, passos + 1):
                     # Se a música mudar durante o fade, atualiza o alvo suavemente sem quebrar
                     alvo_momento = cores_alvo(estado, brilho_para(datetime.datetime.now()), zonas, perfil)
                     if alvo_momento != novo:
+                        log(f"openrgb diagnóstico: alvo mudou durante fade etapa={i}/{passos} anterior={ {k: v[0] if v else None for k, v in novo.items()} } novo={ {k: v[0] if v else None for k, v in alvo_momento.items()} }")
                         novo = alvo_momento
 
                     cores = _misturar(inicio, novo, i / passos)
-                    for chave, _d, z in zonas:
-                        c = cores[chave]
-                        if escrito.get(chave) != c:     # só escreve se o valor do passo mudou
-                            cor_resumo = c[0] if c else None
-                            t_envio = time.monotonic()
-                            log(f"openrgb: enviando zona={chave} leds={len(c)} primeira_cor={cor_resumo} etapa={i}/{passos}")
-                            try:
-                                z.set_colors([RGBColor(*x) for x in c])
-                            except Exception as exc:
-                                log(f"openrgb: FALHA ao enviar zona={chave} etapa={i}/{passos} cor={cor_resumo}: {type(exc).__name__}: {exc}")
-                                raise
-                            duracao = time.monotonic() - t_envio
-                            escrito[chave] = c
-                            log(f"openrgb: envio concluído zona={chave} etapa={i}/{passos} duração={duracao:.3f}s")
-                            # Pausa entre gravações para reduzir a carga sobre o controlador.
-                            time.sleep(INTERVALO_ZONAS)
-                            if passos > 1 and "addressable header" in z.name.lower():
-                                # Mantém os 12 passos do fade, limitando a cerca de 2 envios/s
-                                # para dar mais intervalo ao controlador da cadeia ARGB.
-                                time.sleep(INTERVALO_ADDRESSABLE_EXTRA)
-                    
+                    if _enviar_etapa(zonas, cores, escrito, i, passos, parar, log):
+                        return
+
                     if i < passos and parar.wait(FADE_INTERVALO):
                         return
                 
                 atual = novo
+                log("openrgb diagnóstico: fade concluído (envios SDK; sem confirmação física dos LEDs)")
 
         except Exception as exc:
             if str(exc) != ultimo_erro:

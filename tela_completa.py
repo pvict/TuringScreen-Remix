@@ -4,8 +4,6 @@ import io
 import os
 import threading
 import time
-import cv2
-import requests
 
 import libusb_package
 import usb.util
@@ -23,7 +21,8 @@ from turingscreencli.transport import (
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-ARQUIVO = "video_tela.mp4"
+ARQUIVO_MUSICA = "video_tela.mp4"       # Vídeo com o vinil/efeitos quando toca música
+ARQUIVO_BACKGROUND = "video_fundo.mp4"  # Vídeo de fundo em loop quando nada está a tocar
 FPS = 30
 LARGURA = 300             # largura máxima do texto
 TAM_CAPA = 240            # diâmetro da capa do álbum
@@ -32,13 +31,10 @@ FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
 ATUALIZA_A_CADA = 0.15       # atualiza o anel/progresso a cada 0.15 segundo
 
-TRILHA = (255, 255, 255, 60)
-
 parar = threading.Event()
 estado = {
     "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
-    "clima": "--°C", # <--- ADICIONADO AQUI
 }
 
 
@@ -63,25 +59,18 @@ def brilho_para(agora):
 
 def fonte(nome_arquivo, tamanho):
     try:
-        # Procura primeiro na pasta local do script (caso tenha colocado o .otf na mesma pasta)
         if os.path.exists(nome_arquivo):
             return ImageFont.truetype(nome_arquivo, tamanho)
-        
-        # Se não estiver na pasta local, procura na pasta de fontes do Windows
         caminho_windows = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", nome_arquivo)
         if os.path.exists(caminho_windows):
             return ImageFont.truetype(caminho_windows, tamanho)
-            
-        # Tenta carregar diretamente (caso passe o caminho absoluto)
         return ImageFont.truetype(nome_arquivo, tamanho)
     except Exception as e:
         print(f"[ERRO] Não foi possível carregar a fonte '{nome_arquivo}': {e}")
         return ImageFont.load_default()
 
-# Exemplo de uso com a sua fonte .otf (substitua pelo nome exato do ficheiro, ex: "minha_fonte.otf")
 F_TITULO = fonte("SFPRODISPLAYBOLD.otf", 32)
 F_ARTISTA = fonte("SFPRODISPLAYREGULAR.otf", 20)
-F_CLIMA = fonte("SFPRODISPLAYREGULAR.otf", 16)  # Fonte menor e elegante para o clima
 
 
 def cortar(d, texto, f):
@@ -102,7 +91,6 @@ def txt(d, x, y, texto, f, cor, ancora="mt"):
 def preparar_capa(dados):
     img = Image.open(io.BytesIO(dados)).convert("RGB")
     
-    # Extrai cor predominante para o anel de progresso
     cor_media = img.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
     cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
 
@@ -121,7 +109,7 @@ def preparar_capa(dados):
     saida.putalpha(mascara)
     return saida, cor_rgba
 
-# Variáveis globais para cache do marquee (evita recriar a imagem do texto a cada frame)
+
 _cache_marquee_titulo = None
 _cache_marquee_img = None
 _cache_marquee_largura = 0
@@ -138,30 +126,23 @@ def renderizar(snap):
     musica = snap["musica"]
     cor_destaque = snap.get("cor_capa", (30, 215, 96, 255))
     
-    # --- NOVO: HALO DE LUZ DINÂMICO ---
+    # --- HALO DE LUZ DINÂMICO ---
     if musica and cor_destaque:
-        # Cria uma camada transparente temporária para desenhar o halo
         camada_halo = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
         d_halo = ImageDraw.Draw(camada_halo)
         
-        # Define o raio do halo (pouco maior que a capa/anel)
         raio_halo = raio_anel + 25
-        # Cor com transparência reduzida (canal alpha baixo para ficar suave)
-        cor_halo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 120) # Mais opaco e brilhante
+        cor_halo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 120)
         
         d_halo.ellipse(
             (cx - raio_halo, cy - raio_halo, cx + raio_halo, cy + raio_halo),
             fill=cor_halo
         )
         
-        # Aplica desfoque se quiseres um efeito mais difuso (requer ImageFilter)
         from PIL import ImageFilter
         camada_halo = camada_halo.filter(ImageFilter.GaussianBlur(30))
-        
-        # Funde o halo na imagem principal
         img = Image.alpha_composite(img, camada_halo)
-        d = ImageDraw.Draw(img) # Atualiza o objeto draw após a composição
-    # -----------------------------------
+        d = ImageDraw.Draw(img)
 
     # 1. Trilha de fundo do anel
     d.arc(
@@ -176,20 +157,20 @@ def renderizar(snap):
         frac = min(max(pos / snap["dur"], 0), 1)
         ang_fim = -90 + int(360 * frac)
 
-        # 2. Arco ativo principal da música
+        # 2. Arco ativo principal
         d.arc(
             (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
             -90, ang_fim, fill=cor_destaque, width=4
         )
 
-    # 3. Desenha a Capa do Álbum
+    # 3. Capa do Álbum
     capa = snap["capa"]
     if capa is not None and musica:
         x_capa = cx - (TAM_CAPA // 2)
         y_capa = cy - (TAM_CAPA // 2)
         img.alpha_composite(capa, (x_capa, y_capa))
 
-    # 4. Textos e Rolagem Horizontal Fluida (Marquee)
+    # 4. Textos e Marquee
     if musica:
         titulo, artista = musica
         y_texto = cy + raio_anel + 20
@@ -219,31 +200,21 @@ def renderizar(snap):
             deslocamento_int = int(deslocamento_float)
             
             janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
-            
             x_pos = cx - (LARGURA_MAXIMA // 2)
             img.alpha_composite(janela, (x_pos, int(y_texto)))
 
         if artista:
             txt(d, cx, y_texto + 35, cortar(d, artista, F_ARTISTA), F_ARTISTA, (200, 200, 200, 255))
 
-        # --- EFEITO NO ARO EXTERNO (BORDA DA TELA) ---
-    # Cria um anel subtil ou vinheta na extremidade da tela (raio de 238px a 240px)
     raio_tela = 239
-    
-    # Exemplo 1: Um aro sutil com a cor da música (tipo luz LED na borda da tela)
     cor_aro_externo = (cor_destaque[0], cor_destaque[1], cor_destaque[2], 40)
     d.arc(
         (cx - raio_tela, cy - raio_tela, cx + raio_tela, cy + raio_tela),
-        0, 360, fill=cor_aro_externo, width=3
+        0, 360, fill=cor_aro_externo, width=5
     )
-    
- # Desenha o Clima no Topo (Simétrico ao nome da música em baixo)
-    clima_str = snap.get("clima")
-    if clima_str:
-        y_clima = cy - raio_anel - 22
-        txt(d, cx, y_clima, clima_str, F_CLIMA, (200, 200, 200, 255), ancora="mb")        
             
     return img
+
 
 def sessao_usb():
     dev = libusb_package.find(idVendor=0x1CBE, idProduct=0x21)
@@ -251,7 +222,9 @@ def sessao_usb():
         raise RuntimeError("tela não encontrada")
     try:
         dev.set_configuration()
-        h264 = operations.extract_h264_from_mp4(ARQUIVO)
+        
+        h264_musica = operations.extract_h264_from_mp4(ARQUIVO_MUSICA)
+        h264_fundo = operations.extract_h264_from_mp4(ARQUIVO_BACKGROUND)
 
         def cmd(n):
             pacote = encrypt_command_packet(build_command_packet_header(n))
@@ -265,19 +238,38 @@ def sessao_usb():
         cmd(41)
         operations.clear_image(dev)
         operations.send_frame_rate_command(dev, FPS)
-        log("tela conectada - vinil em rotação contínua permanente")
+        log(f"tela conectada - brilho inicial: {brilho}%")
 
-        ultimo_check = time.time()
+        ultimo_check = 0.0
         ultimo_overlay = 0.0
         ultimo_hash = None
         falhas = 0
 
-        with open(h264, "rb") as fh:
+        fh_musica = open(h264_musica, "rb")
+        fh_fundo = open(h264_fundo, "rb")
+        tinha_midia = estado["musica"] is not None
+        
+        try:
             while not parar.is_set():
-                data = fh.read(202752)
+                agora = time.time()
+                if agora - ultimo_check >= 5:
+                    ultimo_check = agora
+                    novo = brilho_para(datetime.datetime.now())
+                    if novo != brilho:
+                        brilho = novo
+                        operations.send_brightness_command(dev, brilho)
+                        log(f"Brilho alterado para: {brilho}%")
+
+                tem_midia = estado["musica"] is not None
+                if tem_midia != tinha_midia:
+                    tinha_midia = tem_midia
+                    (fh_musica if tem_midia else fh_fundo).seek(0)
+                fh_ativo = fh_musica if tem_midia else fh_fundo
+                
+                data = fh_ativo.read(202752)
                 if not data:
-                    fh.seek(0)
-                    data = fh.read(202752)
+                    fh_ativo.seek(0)
+                    data = fh_ativo.read(202752)
                 
                 pacote = build_command_packet_header(121)
                 pacote[8:12] = len(data).to_bytes(4, "big")
@@ -295,21 +287,31 @@ def sessao_usb():
                     operations.delay(dev, 2)
 
                 agora = time.time()
-                if agora - ultimo_check >= 5:
+                if agora - ultimo_check >= 2:
                     ultimo_check = agora
                     novo = brilho_para(datetime.datetime.now())
                     if novo != brilho:
                         brilho = novo
                         operations.send_brightness_command(dev, brilho)
+                        log(f"Brilho alterado para: {brilho}%")
 
                 if agora - ultimo_overlay >= ATUALIZA_A_CADA:
                     ultimo_overlay = agora
-                    img = renderizar(dict(estado))
+                    
+                    if tem_midia:
+                        img = renderizar(dict(estado))
+                    else:
+                        img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
+
                     h = hash(img.tobytes())
                     if h != ultimo_hash:
                         ultimo_hash = h
                         img.save("overlay.png")
                         operations.send_image(dev, "overlay.png")
+        finally:
+            fh_musica.close()
+            fh_fundo.close()
+            
         cmd(123)
     finally:
         try:
@@ -317,6 +319,7 @@ def sessao_usb():
         except Exception:
             pass
         
+
 def transmitir():
     while not parar.is_set():
         try:
@@ -350,16 +353,28 @@ async def vigiar_spotify():
     while not parar.is_set():
         try:
             sessao = None
-            for s in mgr.get_sessions():
-                if "spotify" in s.source_app_user_model_id.lower():
-                    sessao = s
-                    break
+            sessoes = list(mgr.get_sessions())
+            
+            # Só o Spotify é considerado: procura a sessão dele a tocar
+            for s in sessoes:
+                app_id = s.source_app_user_model_id.lower()
+                if "spotify" in app_id:
+                    status = int(s.get_playback_info().playback_status)
+                    if status == 4:
+                        sessao = s
+                        break
+            
+            # Se o Spotify estiver pausado e ESCONDER_PAUSADO for False, mostra mesmo assim
+            if sessao is None and not ESCONDER_PAUSADO:
+                for s in sessoes:
+                    if "spotify" in s.source_app_user_model_id.lower():
+                        sessao = s
+                        break
+
             tocando = False
             if sessao is not None:
                 tocando = int(sessao.get_playback_info().playback_status) == 4
 
-            # --- AQUI ESTÁ A ALTERAÇÃO ---
-            # Se não houver sessão OU se a opção de esconder estiver ativa e não estiver a tocar:
             if sessao is None or (ESCONDER_PAUSADO and not tocando):
                 estado["musica"] = None
                 estado["capa"] = None
@@ -400,55 +415,13 @@ async def vigiar_spotify():
         except Exception as exc:
             if str(exc) != ultimo_erro:
                 ultimo_erro = str(exc)
-                log(f"spotify: {exc}")
+                log(f"spotify/midia: {exc}")
         await asyncio.sleep(2)
 
-def buscar_clima_inicial():
-    try:
-        lat, lon = -19.9167, -43.9345
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m"
-        resposta = requests.get(url, timeout=5)
-        if resposta.status_code == 200:
-            temp = resposta.json().get("current", {}).get("temperature_2m")
-            if temp is not None:
-                estado["clima"] = f"{round(temp)}°C"
-                log(f"Clima inicial carregado: {estado['clima']}")
-    except Exception as exc:
-        log(f"clima inicial erro: {exc}")
-
-async def vigiar_clima():
-    lat, lon = -19.9167, -43.9345
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m"
-
-    while not parar.is_set():
-        for _ in range(900):
-            if parar.is_set():
-                break
-            await asyncio.sleep(1)
-            
-        if parar.is_set():
-            break
-            
-        try:
-            loop = asyncio.get_running_loop()
-            resposta = await loop.run_in_executor(None, lambda: requests.get(url, timeout=10))
-            if resposta.status_code == 200:
-                temp = resposta.json().get("current", {}).get("temperature_2m")
-                if temp is not None:
-                    estado["clima"] = f"{round(temp)}°C"
-                    log(f"Clima atualizado: {estado['clima']}")
-        except Exception as exc:
-            log(f"clima loop erro: {exc}")
 
 async def main_async():
-    # Busca o clima de imediato antes de entrar nos loops
-    await asyncio.to_thread(buscar_clima_inicial)
-    
-    # Executa em paralelo a escuta do Spotify e a atualização periódica do clima
-    await asyncio.gather(
-        vigiar_spotify(),
-        vigiar_clima()
-    )
+    await vigiar_spotify()
+
 
 def main():
     t = threading.Thread(target=transmitir, daemon=True)

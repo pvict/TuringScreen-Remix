@@ -1,8 +1,6 @@
 import asyncio
-import colorsys
 import datetime
 import io
-import logging
 import os
 import threading
 import time
@@ -23,9 +21,6 @@ from turingscreencli.transport import (
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# silencia o aviso repetido da CLI (ela espera a tela 8,8 de 480x1920); erros continuam aparecendo
-logging.getLogger("turingscreencli").setLevel(logging.ERROR)
-
 ARQUIVO_MUSICA = "video_tela.mp4"       # Vídeo com o vinil/efeitos quando toca música
 ARQUIVO_BACKGROUND = "video_fundo.mp4"  # Vídeo de fundo em loop quando nada está a tocar
 FPS = 30
@@ -39,7 +34,6 @@ ATUALIZA_A_CADA = 0.15       # atualiza o anel/progresso a cada 0.15 segundo
 parar = threading.Event()
 estado = {
     "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
-    "cor_viva": (30, 215, 96, 255),
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
 }
 
@@ -54,16 +48,13 @@ def log(msg):
         pass
 
 
-BRILHO_DIA = 100  # brilho (0 a 100) fora da noite e da madrugada
-
-
 def brilho_para(agora):
     h = agora.hour
     if 1 <= h < 7:
         return 0
-    if h >= 18 or h < 1:
-        return 60
-    return BRILHO_DIA
+    if h >= 22 or h < 1:
+        return 20
+    return 100
 
 
 def fonte(nome_arquivo, tamanho):
@@ -97,30 +88,11 @@ def txt(d, x, y, texto, f, cor, ancora="mt"):
     )
 
 
-def cor_viva_da_capa(img, fallback):
-    """Tom mais marcante e saturado da capa (a média costuma sair acinzentada)."""
-    pequena = img.resize((64, 64), Image.BILINEAR)
-    paleta = getattr(Image, "Palette", Image).ADAPTIVE
-    pequena = pequena.convert("P", palette=paleta, colors=8)
-    pal = pequena.getpalette()
-    melhor, melhor_pontos = None, 0.0
-    for contagem, idx in pequena.getcolors():
-        r, g, b = pal[idx * 3: idx * 3 + 3]
-        h, sat, val = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-        if sat < 0.25 or val < 0.25:
-            continue
-        pontos = contagem * sat * sat * val
-        if pontos > melhor_pontos:
-            melhor, melhor_pontos = (r, g, b, 255), pontos
-    return melhor or fallback
-
-
 def preparar_capa(dados):
     img = Image.open(io.BytesIO(dados)).convert("RGB")
     
     cor_media = img.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
     cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
-    cor_viva = cor_viva_da_capa(img, cor_rgba)
 
     lado = min(img.size)
     x0 = (img.width - lado) // 2
@@ -135,7 +107,7 @@ def preparar_capa(dados):
     
     saida = img.convert("RGBA")
     saida.putalpha(mascara)
-    return saida, cor_rgba, cor_viva
+    return saida, cor_rgba
 
 
 _cache_marquee_titulo = None
@@ -363,7 +335,7 @@ def transmitir():
 async def ler_capa(info):
     try:
         if info.thumbnail is None:
-            return None, None, None
+            return None, None
         fluxo = await info.thumbnail.open_read_async()
         tamanho = fluxo.size
         buf = Buffer(tamanho)
@@ -372,7 +344,7 @@ async def ler_capa(info):
         return preparar_capa(bytes(memoryview(buf)))
     except Exception as exc:
         log(f"capa: {exc}")
-        return None, None, None
+        return None, None
 
 
 async def vigiar_spotify():
@@ -407,7 +379,6 @@ async def vigiar_spotify():
                 estado["musica"] = None
                 estado["capa"] = None
                 estado["cor_capa"] = (30, 215, 96, 255)
-                estado["cor_viva"] = (30, 215, 96, 255)
                 estado["tocando"] = False
                 chave = None
             else:
@@ -417,15 +388,13 @@ async def vigiar_spotify():
                     chave, tentativas = nova, 0
                     estado["capa"] = None
                     estado["cor_capa"] = (30, 215, 96, 255)
-                    estado["cor_viva"] = (30, 215, 96, 255)
                     
                 if estado["capa"] is None and tentativas < 3:
                     tentativas += 1
-                    capa_img, cor_capa, cor_viva = await ler_capa(info)
+                    capa_img, cor_capa = await ler_capa(info)
                     if capa_img is not None:
                         estado["capa"] = capa_img
                         estado["cor_capa"] = cor_capa
-                        estado["cor_viva"] = cor_viva
 
                 tl = sessao.get_timeline_properties()
                 dur = (tl.end_time - tl.start_time).total_seconds()
@@ -455,11 +424,6 @@ async def main_async():
 
 
 def main():
-    try:
-        import leds_openrgb
-        leds_openrgb.iniciar(estado, brilho_para, parar, log)
-    except ImportError as exc:
-        log(f"LEDs desligados (openrgb-python não instalado): {exc}")
     t = threading.Thread(target=transmitir, daemon=True)
     t.start()
     try:

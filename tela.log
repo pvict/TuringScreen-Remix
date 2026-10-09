@@ -966,3 +966,122 @@
 2026-10-08 20:45:47 tela conectada - brilho inicial: 60%
 2026-10-08 20:46:43 parado
 2026-10-08 20:46:47 tela conectada - brilho inicial: 100%
+2026-10-08 21:09:08 parado
+2026-10-08 21:09:12 tela conectada - brilho inicial: 60%
+2026-10-08 21:10:30 parado
+2026-10-08 21:10:34 tela conectada - brilho inicial: 60%
+2026-10-08 21:11:28 parado
+2026-10-08 21:11:58 tela conectada - brilho inicial: 60%
+2026-10-08 21:12:55 parado
+2026-10-08 21:12:58 tela conectada - brilho inicial: 60%
+2026-10-08 21:13:59 parado
+2026-10-08 21:14:04 tela conectada - brilho inicial: 60%
+2026-10-08 21:15:48 openrgb: SDK server did not respond to previous request
+2026-10-08 21:16:03 openrgb: 
+2026-10-08 21:19:41 parado
+2026-10-08 21:19:46 tela conectada - brilho inicial: 60%
+2026-10-08 21:23:02 parado
+2026-10-08 21:23:09 tela conectada - brilho inicial: 60%
+2026-10-08 21:25:49 parado
+2026-10-08 21:25:50 openrgb: conectando (protocolo 3)...
+2026-10-08 21:25:50 openrgb: conectou em 0.0s
+2026-10-08 21:25:50 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:25:50 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:25:53 tela conectada - brilho inicial: 60%
+2026-10-08 21:27:52 parado
+2026-10-08 21:28:29 openrgb: conectando (protocolo 3)...
+2026-10-08 21:28:29 openrgb: conectou em 0.0s
+2026-10-08 21:28:29 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:28:29 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:28:32 tela conectada - brilho inicial: 60%
+2026-10-08 21:31:27 parado
+2026-10-08 21:31:29 openrgb: conectando (protocolo 3)...
+2026-10-08 21:31:29 openrgb: conectou em 0.0s
+2026-10-08 21:31:29 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:31:30 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:31:30 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:31:32 tela conectada - brilho inicial: 60%
+2026-10-08 21:34:03 parado
+2026-10-08 21:34:04 openrgb: conectando (protocolo 3)...
+2026-10-08 21:34:04 openrgb: conectou em 0.0s
+2026-10-08 21:34:04 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:34:05 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:34:05 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:34:07 tela conectada - brilho inicial: 60%
+2026-10-08 21:35:04 parado
+2026-10-08 21:35:05 openrgb: conectando (protocolo 3)...
+2026-10-08 21:35:05 openrgb: conectou em 0.0s
+2026-10-08 21:35:05 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:35:06 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:35:06 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:35:08 tela conectada - brilho inicial: 60%
+2026-10-08 21:35:24 parado
+2026-10-08 21:35:26 openrgb: conectando (protocolo 3)...
+2026-10-08 21:35:26 openrgb: conectou em 0.0s
+2026-10-08 21:35:26 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:35:27 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:35:27 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:35:28 tela conectada - brilho inicial: 60%
+2026-10-08 21:37:07 parado
+2026-10-08 21:37:08 openrgb: conectando (protocolo 3)...
+2026-10-08 21:37:08 openrgb: conectou em 0.0s
+2026-10-08 21:37:08 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:37:09 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:37:09 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:37:11 tela conectada - brilho inicial: 60%
+2026-10-08 21:38:22 parado
+2026-10-08 21:38:23 openrgb: conectando (protocolo 3)...
+2026-10-08 21:38:23 openrgb: conectou em 0.0s
+2026-10-08 21:38:23 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:38:24 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:38:24 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:38:26 tela conectada - brilho inicial: 60%
+2026-10-08 21:38:49 parado
+2026-10-08 21:38:50 openrgb: conectando (protocolo 3)...
+2026-10-08 21:38:50 openrgb: conectou em 0.0s
+2026-10-08 21:38:50 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:38:51 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:38:51 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:38:53 tela conectada - brilho inicial: 60%
+2026-10-08 21:39:15 parado
+2026-10-08 21:39:16 openrgb: conectando (protocolo 3)...
+2026-10-08 21:39:16 openrgb: conectou em 0.0s
+2026-10-08 21:39:16 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:39:17 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:39:17 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:39:19 tela conectada - brilho inicial: 60%
+2026-10-08 21:40:26 parado
+2026-10-08 21:40:27 openrgb: conectando (protocolo 3)...
+2026-10-08 21:40:27 openrgb: conectou em 0.0s
+2026-10-08 21:40:27 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:40:28 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:40:28 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:40:30 tela conectada - brilho inicial: 60%
+2026-10-08 21:41:04 parado
+2026-10-08 21:41:05 openrgb: conectando (protocolo 3)...
+2026-10-08 21:41:05 openrgb: conectou em 0.0s
+2026-10-08 21:41:05 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:41:06 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:41:06 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:41:08 tela conectada - brilho inicial: 60%
+2026-10-08 21:41:51 parado
+2026-10-08 21:41:52 openrgb: conectando (protocolo 3)...
+2026-10-08 21:41:52 openrgb: conectou em 0.0s
+2026-10-08 21:41:52 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:41:53 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:41:53 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:41:55 tela conectada - brilho inicial: 60%
+2026-10-08 21:44:32 parado
+2026-10-08 21:44:34 openrgb: conectando (protocolo 3)...
+2026-10-08 21:44:34 openrgb: conectou em 0.0s
+2026-10-08 21:44:34 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:44:35 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:44:35 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:44:36 tela conectada - brilho inicial: 100%
+2026-10-08 21:45:51 parado
+2026-10-08 21:45:52 openrgb: conectando (protocolo 3)...
+2026-10-08 21:45:52 openrgb: conectou em 0.0s
+2026-10-08 21:45:52 openrgb: dispositivos ['ASRock B450M Steel Legend', 'G305 Lightspeed Wireless Gaming Mouse']
+2026-10-08 21:45:53 openrgb: perfil 'purple rain' lido (21 LEDs)
+2026-10-08 21:45:53 openrgb: controlando ['ASRock B450M Steel Legend'] ['static']
+2026-10-08 21:45:55 tela conectada - brilho inicial: 60%

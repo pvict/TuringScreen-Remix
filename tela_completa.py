@@ -8,6 +8,7 @@ import threading
 import time
 import sys
 import contextlib
+import shutil
 
 # --- CORREÇÃO CRÍTICA PARA O WINRT (SPOTIFY) ---
 sys.coinit_flags = 0  # 0 = COINIT_MULTITHREADED
@@ -27,6 +28,8 @@ from turingscreencli.transport import (
     encrypt_command_packet,
     write_to_device,
 )
+import ao_vivo
+import animacao_capa
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -46,13 +49,13 @@ def silenciar_saida():
 
 ARQUIVO_MUSICA = "video_tela.mp4"
 ARQUIVO_BACKGROUND = "video_fundo.mp4"
-FPS = 30
+FPS = 60
 LARGURA = 300
 TAM_CAPA = 240
 ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
-ATUALIZA_A_CADA = 0.03       # Atualiza a imagem a ~33 quadros por segundo
+KBPS = 12000                  # taxa do vídeo H.264 enviado à tela (mais alto = texto mais nítido)
 
 parar = threading.Event()
 estado = {
@@ -281,8 +284,8 @@ def renderizar(snap):
     # 3. Capa do Álbum (Perfeitamente redonda, instantânea e leve)
     capa = snap.get("capa")
     if capa is not None and musica:
-        x_capa = cx - (TAM_CAPA // 2)
-        y_capa = cy - (TAM_CAPA // 2)
+        x_capa = cx - (capa.width // 2)
+        y_capa = cy - (capa.height // 2)
         
         # Desenha diretamente a capa já tratada e circular, sem sobrecarregar o CPU com filtros por frame
         img.alpha_composite(capa, (x_capa, y_capa))
@@ -441,15 +444,108 @@ def renderizar(snap):
     return img
 
 
+COR_PADRAO = (30, 215, 96, 255)
+
+
+def _cor_rgba(cor):
+    c = tuple(int(round(x)) for x in (cor or COR_PADRAO))
+    return c if len(c) == 4 else (c[0], c[1], c[2], 255)
+
+
+class Painel:
+    """Monta cada quadro da transmissão ao vivo: vídeo de fundo + painel + animação de troca de capa.
+
+    Tudo vira vídeo H.264 (ao_vivo.py), então a animação não depende do tempo que a tela
+    leva para receber cada imagem. Roda na thread do pipeline."""
+
+    def __init__(self, fundo_musica, fundo_ocioso, brilho_inicial):
+        self.fundo_musica = fundo_musica
+        self.fundo_ocioso = fundo_ocioso
+        self.pipe = None
+        self.brilho = brilho_inicial
+        self.t_brilho = 0.0
+        self.erro_log = ""
+        self._zerar()
+
+    def _zerar(self):
+        self.capa = None        # capa exibida (quando não há transição)
+        self.cor = None
+        self.destino = None     # (capa, cor) para onde a transição em curso vai
+        self.alvo = None        # última capa do estado que já provocou uma transição
+        self.trans = None
+        self.titulo = None      # (título, artista) exibido
+
+    def _checar_brilho(self, agora):
+        if agora - self.t_brilho < 2.0 or self.pipe is None:
+            return
+        self.t_brilho = agora
+        novo = brilho_para(datetime.datetime.now())
+        if novo != self.brilho:
+            self.brilho = novo
+            # só a thread do USB fala com a tela
+            self.pipe.env.executar(lambda dev, b=novo: operations.send_brightness_command(dev, b))
+            log(f"Brilho alterado para: {novo}%")
+
+    def _painel(self, snap, agora):
+        cap = snap.get("capa")
+        cor_nova = _cor_rgba(snap.get("cor_viva") or snap.get("cor_capa"))
+
+        if cap is not None and cap is not self.alvo:
+            if self.trans is not None and self.destino is not None:
+                self.capa, self.cor = self.destino      # troca rápida: parte do destino anterior
+            self.alvo = cap
+            self.destino = (cap, cor_nova)
+            self.trans = animacao_capa.TransicaoCapa(
+                self.capa, self.cor, cap, cor_nova, inicio=agora)
+
+        capa_img, cor = None, cor_nova
+        if self.trans is not None:
+            capa_img, cor, metade, fim = self.trans.quadro(agora)
+            if metade:
+                self.titulo = snap["musica"]            # o texto troca no meio do giro
+            if fim:
+                self.trans = None
+                self.capa, self.cor = self.destino
+        if self.trans is None:
+            self.titulo = snap["musica"]
+            if self.capa is not None:
+                capa_img, cor = self.capa, self.cor
+        if self.titulo is None:
+            self.titulo = snap["musica"]                # primeira música: texto e anel já aparecem
+
+        cor = _cor_rgba(cor)
+        snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor)
+        return renderizar(snap)
+
+    def quadro(self, agora):
+        self._checar_brilho(agora)
+        snap = dict(estado)
+        tem = snap.get("musica") is not None
+        fundo = self.fundo_musica if tem else self.fundo_ocioso
+        bg = fundo.proximo() or Image.new("RGB", (480, 480), (10, 10, 20))
+        if not tem:
+            self._zerar()
+            return bg
+        try:
+            ov = self._painel(snap, agora)
+        except Exception as exc:
+            if str(exc) != self.erro_log:
+                self.erro_log = str(exc)
+                log(f"erro desenhando o painel: {exc}")
+            return bg
+        base = bg.convert("RGBA")
+        base.alpha_composite(ov)
+        return base.convert("RGB")
+
+
 def sessao_usb():
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg não encontrado no PATH")
     dev = libusb_package.find(idVendor=0x1CBE, idProduct=0x21)
     if dev is None:
         raise RuntimeError("tela não encontrada")
     try:
         dev.set_configuration()
-        
-        h264_musica = operations.extract_h264_from_mp4(ARQUIVO_MUSICA)
-        h264_fundo = operations.extract_h264_from_mp4(ARQUIVO_BACKGROUND)
 
         def cmd(n):
             pacote = encrypt_command_packet(build_command_packet_header(n))
@@ -479,96 +575,43 @@ def sessao_usb():
                 time.sleep(0.05)
             except Exception:
                 pass
-        
+
         log(f"tela conectada - brilho inicial: {brilho}%")
 
-        ultimo_check = 0.0
-        ultimo_overlay = 0.0
-        ultimo_hash = None
-        falhas = 0
+        fundo_musica = ao_vivo.FundoDecoder(ARQUIVO_MUSICA, FPS)
+        fundo_ocioso = ao_vivo.FundoDecoder(ARQUIVO_BACKGROUND, FPS)
+        painel = Painel(fundo_musica, fundo_ocioso, brilho)
 
-        # CONTADOR DE AQUECIMENTO DO VÍDEO AO DESPAUSAR
-        frames_aquecimento = 0
+        # O pipeline dá parar.set() no próprio evento ao terminar (inclusive por erro);
+        # por isso ele usa um evento só da sessão, ligado ao parar global por esta ponte.
+        parar_sessao = threading.Event()
 
-        fh_musica = open(h264_musica, "rb")
-        fh_fundo = open(h264_fundo, "rb")
-        tinha_midia = estado.get("musica") is not None
-        
+        def ponte():
+            while not parar_sessao.is_set():
+                if parar.wait(0.2):
+                    parar_sessao.set()
+
+        threading.Thread(target=ponte, daemon=True).start()
+
+        pipe = ao_vivo.PipelineAoVivo(
+            dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao)
+        painel.pipe = pipe
         try:
-            while not parar.is_set():
-                agora = time.time()
-                if agora - ultimo_check >= 5:
-                    ultimo_check = agora
-                    novo = brilho_para(datetime.datetime.now())
-                    if novo != brilho:
-                        brilho = novo
-                        operations.send_brightness_command(dev, brilho)
-                        log(f"Brilho alterado para: {brilho}%")
-
-                tem_midia = estado.get("musica") is not None
-                if tem_midia != tinha_midia:
-                    tinha_midia = tem_midia
-                    (fh_musica if tem_midia else fh_fundo).seek(0)
-                    if tem_midia:
-                        frames_aquecimento = 1  # Ignora a capa nos primeiros 4 quadros (~120ms) para o vídeo arrancar limpo    
-                fh_ativo = fh_musica if tem_midia else fh_fundo
-                
-                data = fh_ativo.read(202752)
-                if not data:
-                    fh_ativo.seek(0)
-                    data = fh_ativo.read(202752)
-                
-                pacote = build_command_packet_header(121)
-                pacote[8:12] = len(data).to_bytes(4, "big")
-                carga = encrypt_command_packet(pacote) + data
-                resp = write_to_device(dev, carga)
-                time.sleep(0.03)
-
-                if resp is None:
-                    falhas += 1
-                    if falhas >= FALHAS_MAX:
-                        raise RuntimeError("tela sem resposta")
-                else:
-                    falhas = 0
-                if resp is None or len(resp) < 9 or resp[8] <= 3:
-                    operations.delay(dev, 2)
-
-                agora = time.time()
-                if agora - ultimo_check >= 2:
-                    ultimo_check = agora
-                    novo = brilho_para(datetime.datetime.now())
-                    if novo != brilho:
-                        brilho = novo
-                        operations.send_brightness_command(dev, brilho)
-                        log(f"Brilho alterado para: {brilho}%")
-
-                if agora - ultimo_overlay >= ATUALIZA_A_CADA:
-                    ultimo_overlay = agora
-                    
-                    if frames_aquecimento > 0:
-                        frames_aquecimento -= 1
-                        # Envia apenas o vídeo puro (sem renderizar capa, arcos ou texto por cima)
-                        img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
-                    elif tem_midia or _cache_vol_opacidade > 0:
-                        img = renderizar(dict(estado))
-                    else:
-                        img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
-
-                    # Envia diretamente o frame contínuo para garantir a fluidez do letreiro
-                    img.save("overlay.png")
-                    operations.send_image(dev, "overlay.png")
-
+            pipe.rodar()
         finally:
-            fh_musica.close()
-            fh_fundo.close()
-            
-        cmd(123)
+            parar_sessao.set()
+            fundo_musica.fechar()
+            fundo_ocioso.fechar()
+            try:
+                cmd(123)
+            except Exception:
+                pass
     finally:
         try:
             usb.util.dispose_resources(dev)
         except Exception:
             pass
-        
+
 
 def transmitir():
     while not parar.is_set():

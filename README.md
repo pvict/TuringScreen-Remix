@@ -1,5 +1,7 @@
 <h1 align="center">🎵 Turing Vinyl - With Spotify Integration</h1>
 
+<p align="center"><a href="README.md">Português</a> · <a href="README.en.md">English</a></p>
+
 <p align="center">
   Uma experiência musical animada para a Turing Smart Screen: capas, playlists e LEDs sincronizados com o que está tocando.
 </p>

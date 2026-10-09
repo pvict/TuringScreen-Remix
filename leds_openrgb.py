@@ -267,7 +267,21 @@ def _laco(estado, brilho_para, parar, log):
     atual = None
     escrito = {}            # última cor realmente enviada, por zona
     ultimo_erro = ""
+    inicio_espera_midia = time.monotonic()
+    avisou_espera_midia = False
+    liberou_por_timeout = False
     while not parar.is_set():
+        if not estado.get("midia_pronta", False) and not liberou_por_timeout:
+            if time.monotonic() - inicio_espera_midia < 5.0:
+                if not avisou_espera_midia:
+                    log("openrgb: aguardando a leitura inicial da mídia antes de enviar cores")
+                    avisou_espera_midia = True
+                if parar.wait(0.05):
+                    return
+                continue
+            log("openrgb: leitura inicial da mídia demorou; iniciando com o estado disponível")
+            liberou_por_timeout = True
+
         try:
             if cli is None:
                 log(f"openrgb: conectando (protocolo {PROTOCOLO or 'auto'})...")

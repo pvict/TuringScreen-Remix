@@ -63,9 +63,8 @@ estado = {
     "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
     "cor_viva": (30, 215, 96, 255),
     "capa_playlist": None, "cor_playlist": None, "cor_viva_playlist": None,
-    "playlist_uri": None, "playlist_nome": None, "playlist_evento": 0,
+    "playlist_uri": None, "playlist_nome": None,
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
-    "midia_pronta": False,
     "volume": None, "volume_exibir_ate": 0.0,
 }
 
@@ -140,15 +139,12 @@ def cor_viva_da_capa(img, fallback):
     return melhor or fallback
 
 
-def preparar_capa(dados, calcular_cores=True):
+def preparar_capa(dados):
     img = Image.open(io.BytesIO(dados)).convert("RGB")
-
-    if calcular_cores:
-        cor_media = img.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
-        cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
-        cor_viva = cor_viva_da_capa(img, cor_rgba)
-    else:
-        cor_rgba = cor_viva = None
+    
+    cor_media = img.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
+    cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
+    cor_viva = cor_viva_da_capa(img, cor_rgba)
 
     lado = min(img.size)
     x0 = (img.width - lado) // 2
@@ -166,6 +162,21 @@ def preparar_capa(dados, calcular_cores=True):
     return saida, cor_rgba, cor_viva
 
 
+def preparar_capa_playlist(dados):
+    """Redimensiona proporcionalmente sem recortar, mascarar ou girar a arte."""
+    original = Image.open(io.BytesIO(dados)).convert("RGB")
+    cor_media = original.resize((1, 1), resample=Image.BILINEAR).getpixel((0, 0))
+    cor_rgba = (cor_media[0], cor_media[1], cor_media[2], 255)
+    cor_viva = cor_viva_da_capa(original, cor_rgba)
+
+    original.thumbnail((TAM_CAPA, TAM_CAPA), Image.LANCZOS)
+    saida = Image.new("RGBA", (TAM_CAPA, TAM_CAPA), (0, 0, 0, 0))
+    x = (TAM_CAPA - original.width) // 2
+    y = (TAM_CAPA - original.height) // 2
+    saida.alpha_composite(original.convert("RGBA"), (x, y))
+    return saida, cor_rgba, cor_viva
+
+
 def atualizar_capa_playlist(uri, nome, dados):
     if not dados:
         estado.update(
@@ -174,13 +185,10 @@ def atualizar_capa_playlist(uri, nome, dados):
         )
         return
     try:
-        # Usa o mesmo tamanho e recorte circular já aplicado à capa do álbum.
-        capa, cor, cor_viva = preparar_capa(dados, calcular_cores=False)
-        mudou_playlist = uri != estado.get("playlist_uri")
+        capa, cor, cor_viva = preparar_capa_playlist(dados)
         estado.update(
             capa_playlist=capa, cor_playlist=cor, cor_viva_playlist=cor_viva,
             playlist_uri=uri, playlist_nome=nome,
-            playlist_evento=estado.get("playlist_evento", 0) + int(mudou_playlist),
         )
         log(f"Spotify playlist: capa carregada ({nome or 'sem nome'}).")
     except Exception as exc:
@@ -311,7 +319,9 @@ def renderizar(snap):
         )
 
     # 3. Capa do Álbum (Perfeitamente redonda, instantânea e leve)
-    capa = snap.get("capa")
+    capa = snap.get("capa_playlist")
+    if capa is None:
+        capa = snap.get("capa")
     if capa is not None and musica:
         x_capa = cx - (capa.width // 2)
         y_capa = cy - (capa.height // 2)
@@ -329,20 +339,15 @@ def renderizar(snap):
             _img_base = img
             img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
             d = ImageDraw.Draw(img)
-        modo_playlist_texto = snap.get("modo_playlist_texto", False)
         titulo, artista = musica
         y_texto = cy + raio_anel + 20 + dy_texto
-        y_titulo = y_texto
-        if modo_playlist_texto:
-            txt(d, cx, y_texto, "Você está ouvindo", F_ARTISTA, (200, 200, 200, 255))
-            y_titulo += 25
         
         LARGURA_MAXIMA = 325  
         titulo_str = titulo or ""
         largura_titulo = d.textlength(titulo_str, font=F_TITULO)
         
         if largura_titulo <= LARGURA_MAXIMA:
-            txt(d, cx, y_titulo, titulo_str, F_TITULO, (255, 255, 255, 255))
+            txt(d, cx, y_texto, titulo_str, F_TITULO, (255, 255, 255, 255))
         else:
             if _cache_marquee_titulo != titulo_str:
                 _cache_marquee_titulo = titulo_str
@@ -358,12 +363,7 @@ def renderizar(snap):
                 _cache_marquee_largura = int(d.textlength(titulo_str + "    •    ", font=F_TITULO))
 
             velocidade = 35.0
-            if modo_playlist_texto:
-                inicio_mensagem = snap.get("mensagem_playlist_inicio") or time.monotonic()
-                tempo_marquee = max(0.0, time.monotonic() - inicio_mensagem)
-            else:
-                tempo_marquee = time.monotonic()
-            deslocamento_int = int((tempo_marquee * velocidade) % _cache_marquee_largura)
+            deslocamento_int = int((time.monotonic() * velocidade) % _cache_marquee_largura)
             
             janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
             
@@ -386,9 +386,9 @@ def renderizar(snap):
             janela = Image.merge("RGBA", (r, g, b, a_fade))
             
             x_pos = cx - (LARGURA_MAXIMA // 2)
-            img.alpha_composite(janela, (x_pos, int(y_titulo)))
+            img.alpha_composite(janela, (x_pos, int(y_texto)))
             
-        if artista and not modo_playlist_texto:
+        if artista:
             txt(d, cx, y_texto + 35, cortar(d, artista, F_ARTISTA), F_ARTISTA, (200, 200, 200, 255))
 
     if _img_base is not None:
@@ -566,8 +566,6 @@ class Painel:
         self.trans = None
         self.titulo = None      # (título, artista) exibido
         self.titulo_alvo = None
-        self.modo_playlist_texto = False
-        self.modo_playlist_texto_alvo = False
         self.t_texto = None     # início da animação de troca de texto
         self.angulo = 0.0
         self.vel = 0.0
@@ -575,11 +573,6 @@ class Painel:
         self._r_t0 = 0.0
         self._r_v0 = 0.0
         self.exibindo_playlist = False
-        self._playlist_uri_timer = None
-        self._playlist_evento_visto = 0
-        self._proxima_mensagem_playlist = None
-        self._mensagem_playlist_ate = 0.0
-        self._inicio_mensagem_playlist = None
 
     def _checar_brilho(self, agora):
         if agora - self.t_brilho < 2.0 or self.pipe is None:
@@ -626,50 +619,57 @@ class Painel:
     def _painel(self, snap, agora, dt, tocando):
         musica = snap.get("musica")
         cap = snap.get("capa")
-        cap_playlist = snap.get("capa_playlist") if snap.get("mostrar_capa_playlist") else None
-        # A paleta da tela e dos LEDs continua vindo da capa do álbum.
-        cor_base = snap.get("cor_viva") or snap.get("cor_capa")
+        cap_playlist = snap.get("capa_playlist")
+        if cap_playlist is not None:
+            cor_base = snap.get("cor_viva_playlist") or snap.get("cor_playlist")
+        else:
+            cor_base = snap.get("cor_viva") or snap.get("cor_capa")
         cor_nova = _cor_rgba(cor_base)
 
         if tocando:
-            # Texto da faixa e aviso da playlist compartilham a mesma animação.
-            modo_playlist_alvo = bool(snap.get("mensagem_playlist"))
-            texto_alvo = (
-                (snap.get("playlist_nome") or "", "")
-                if modo_playlist_alvo else musica
-            )
+            # texto: a faixa mudou -> o antigo sai, o novo entra
             if self.titulo is None:
-                self.titulo = self.titulo_alvo = texto_alvo
-                self.modo_playlist_texto = self.modo_playlist_texto_alvo = modo_playlist_alvo
-            elif (texto_alvo != self.titulo_alvo
-                  or modo_playlist_alvo != self.modo_playlist_texto_alvo):
-                self.titulo_alvo = texto_alvo
-                self.modo_playlist_texto_alvo = modo_playlist_alvo
+                self.titulo = self.titulo_alvo = musica     # primeira música: já aparece
+            elif musica != self.titulo_alvo:
+                self.titulo_alvo = musica
                 self.t_texto = agora
-            # Playlist e álbum usam a mesma transição circular de troca de capa.
-            capa_alvo = cap_playlist if cap_playlist is not None else cap
-            self.exibindo_playlist = cap_playlist is not None
-            if capa_alvo is not None and capa_alvo is not self.alvo:
-                retomou_mesma = (
-                    cap_playlist is None and not self.estava_tocando
-                    and self.capa is not None and musica == self.titulo
-                )
-                if retomou_mesma:
-                    self.alvo, self.capa, self.cor = capa_alvo, capa_alvo, cor_nova
-                else:
-                    if self.trans is not None and self.destino is not None:
-                        self.capa, self.cor = self.destino
-                    ant = self._capa_girada()
-                    self.alvo = capa_alvo
-                    self.destino = (capa_alvo, cor_nova)
-                    self.angulo = 0.0
-                    self.trans = animacao_capa.TransicaoCapa(
-                        ant, self.cor, capa_alvo, cor_nova, inicio=agora)
+            if cap_playlist is not None:
+                # A arte da playlist é mostrada quadrada e estática, sem animação/corte.
+                self.trans = None
+                self.capa = self.alvo = cap_playlist
+                self.cor = cor_nova
+                self.angulo = self.vel = 0.0
+                self.exibindo_playlist = True
+            else:
+                if self.exibindo_playlist:
+                    # Ao sair do contexto playlist, volta à capa normal da faixa.
+                    self.capa = self.alvo = self.destino = None
+                    self.cor = None
+                    self.trans = None
+                    self.angulo = self.vel = 0.0
+                    self.exibindo_playlist = False
+                # capa da faixa: troca com a animação circular já existente.
+                if cap is not None and cap is not self.alvo:
+                    retomou_mesma = (not self.estava_tocando and self.capa is not None
+                                     and musica == self.titulo)
+                    if retomou_mesma:
+                        self.alvo, self.capa, self.cor = cap, cap, cor_nova
+                    else:
+                        if self.trans is not None and self.destino is not None:
+                            self.capa, self.cor = self.destino
+                        ant = self._capa_girada()
+                        self.alvo = cap
+                        self.destino = (cap, cor_nova)
+                        self.angulo = 0.0
+                        self.trans = animacao_capa.TransicaoCapa(
+                            ant, self.cor, cap, cor_nova, inicio=agora)
 
         self._girar(agora, dt, tocando and not self.exibindo_playlist)
 
         capa_img, cor = None, None
-        if self.trans is not None:
+        if self.exibindo_playlist and cap_playlist is not None:
+            capa_img, cor = self.capa, self.cor
+        elif self.trans is not None:
             capa_img, cor, _metade, fim = self.trans.quadro(agora)
             if fim:
                 self.trans = None
@@ -688,7 +688,6 @@ class Painel:
                 ta, dy = 1 - u, -TEXTO_DESLOC * u
             else:
                 self.titulo = self.titulo_alvo
-                self.modo_playlist_texto = self.modo_playlist_texto_alvo
                 u = (t - TEXTO_SAI) / TEXTO_ENTRA
                 if u >= 1:
                     self.t_texto = None
@@ -705,8 +704,7 @@ class Painel:
 
         cor = _cor_rgba(cor)
         snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor,
-                    texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
-                    modo_playlist_texto=self.modo_playlist_texto)
+                    texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud))
         return renderizar(snap)
 
     def quadro(self, agora):
@@ -716,31 +714,6 @@ class Painel:
 
         snap = dict(estado)
         tocando = snap.get("musica") is not None
-        uri_playlist = snap.get("playlist_uri") if tocando and snap.get("capa_playlist") is not None else None
-        evento_playlist = snap.get("playlist_evento", 0)
-        if evento_playlist != self._playlist_evento_visto and uri_playlist:
-            # Mudança detectada pelo monitor Spotify: anuncia antes da capa do álbum.
-            self._playlist_evento_visto = evento_playlist
-            self._playlist_uri_timer = uri_playlist
-            self._mensagem_playlist_ate = agora + 7.0
-            self._inicio_mensagem_playlist = agora
-            self._proxima_mensagem_playlist = agora + 60.0
-        elif uri_playlist != self._playlist_uri_timer:
-            self._playlist_uri_timer = uri_playlist
-            self._proxima_mensagem_playlist = agora + 60.0 if uri_playlist else None
-            self._mensagem_playlist_ate = 0.0
-            self._inicio_mensagem_playlist = None
-        elif uri_playlist and self._proxima_mensagem_playlist is not None and agora >= self._proxima_mensagem_playlist:
-            self._mensagem_playlist_ate = agora + 7.0
-            self._inicio_mensagem_playlist = agora
-            self._proxima_mensagem_playlist = agora + 60.0
-        mostrar_playlist = bool(uri_playlist and agora < self._mensagem_playlist_ate)
-        snap["mostrar_capa_playlist"] = mostrar_playlist
-        snap["mensagem_playlist"] = (
-            f"Você está ouvindo '{snap.get('playlist_nome')}'"
-            if mostrar_playlist and snap.get("playlist_nome") else None
-        )
-        snap["mensagem_playlist_inicio"] = self._inicio_mensagem_playlist
         if tocando:
             self.t_pausa = None
         elif self.estava_tocando:
@@ -912,7 +885,6 @@ async def vigiar_spotify():
                 estado["cor_capa"] = (30, 215, 96, 255)
                 estado["cor_viva"] = (30, 215, 96, 255)
                 estado["tocando"] = False
-                estado["midia_pronta"] = True
                 chave = None
             else:
                 info = await sessao.try_get_media_properties_async()
@@ -951,9 +923,6 @@ async def vigiar_spotify():
                     musica=nova, pos=pos, dur=dur,
                     t_poll=time.monotonic(), tocando=tocando,
                 )
-                # Só libera o OpenRGB após tentar obter a capa que define a cor inicial.
-                if estado.get("capa") is not None or tentativas >= 2:
-                    estado["midia_pronta"] = True
         except Exception as exc:
             if str(exc) != ultimo_erro:
                 ultimo_erro = str(exc)

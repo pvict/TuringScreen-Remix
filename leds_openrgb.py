@@ -63,7 +63,7 @@ def realcar(cor):
     # --- TRATAMENTO AUTOMÁTICO PARA ROSAS DE TOM MAIS AVERMELHADO ---
     # Identifica rosas pelo matiz antes das regras de vermelho/roxo. Isso inclui
     # tons como (254, 95, 153), sem puxar laranjas/salmões cujo matiz é mais quente.
-    h_original, s_original, _ = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+    h_original, s_original, v_original = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
     if r > 120 and 0.92 <= h_original <= 0.985 and s_original >= 0.25 and b > g:
         # Preserva um pouco do verde e reforça menos o azul para um rosa mais claro,
         # evitando que o resultado se aproxime demais do roxo/magenta.
@@ -131,14 +131,36 @@ def realcar(cor):
             b = int(b * 0.35)
             g = int(g * 0.8)  
             fator_brilho = 255.0 / max(r, 1)
-            return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+            cor_base = (min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho)))
         else:
             # Mantém o verde e o azul extremamente baixos para fechar no tom vinho/bordô
             g = int(r * 0.05)
             b = int(r * 0.02)
             
             fator_brilho = 95.0 / max(r, 1) if r > 40 else 1.0
-            return min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho))
+            cor_base = (min(255, int(r * fator_brilho)), min(255, int(g * fator_brilho)), min(255, int(b * fator_brilho)))
+
+        # Laranjas escuros e saturados (ex.: 152, 68, 27): suaviza a cor usando
+        # o matiz e a intensidade originais, antes dos cortes de verde e azul.
+        # O peso cai gradualmente fora dessa faixa; vermelhos, rosas e tons
+        # claros ou pouco saturados conservam a calibração anterior.
+        peso_laranja = max(0.0, min(
+            (h_original - 0.025) / 0.02,
+            (0.11 - h_original) / 0.02,
+            (s_original - 0.55) / 0.15,
+            (v_original - 0.30) / 0.15,
+            (0.85 - v_original) / 0.15,
+            1.0,
+        ))
+        if peso_laranja > 0.0:
+            peso_laranja = peso_laranja ** 2 * (3 - 2 * peso_laranja)
+            s_suave = s_original * 0.95  # Preserva mais laranja, com menos mistura de branco.
+            v_suave = min(v_original * 0.60, 95 / 255)
+            cor_suave = tuple(int(c * 255) for c in
+                              colorsys.hsv_to_rgb(h_original, s_suave, v_suave))
+            return tuple(round(a + (b - a) * peso_laranja)
+                         for a, b in zip(cor_base, cor_suave))
+        return cor_base
         
     # 2. Se o AZUL for dominante
     if b > r and b > g:

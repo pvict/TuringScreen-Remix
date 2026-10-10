@@ -359,11 +359,16 @@ def renderizar(snap):
                 _cache_marquee_largura = int(d.textlength(titulo_str + "    •    ", font=F_TITULO))
 
             velocidade = 35.0
+            tempo_visual = snap.get("tempo_visual")
+            if tempo_visual is None:
+                tempo_visual = time.monotonic()
             if modo_playlist_texto:
-                inicio_mensagem = snap.get("mensagem_playlist_inicio") or time.monotonic()
-                tempo_marquee = max(0.0, time.monotonic() - inicio_mensagem)
+                inicio_mensagem = snap.get("mensagem_playlist_inicio")
+                if inicio_mensagem is None:
+                    inicio_mensagem = tempo_visual
+                tempo_marquee = max(0.0, tempo_visual - inicio_mensagem)
             else:
-                tempo_marquee = time.monotonic()
+                tempo_marquee = tempo_visual
             deslocamento_int = int((tempo_marquee * velocidade) % _cache_marquee_largura)
             
             janela = _cache_marquee_img.crop((deslocamento_int, 0, deslocamento_int + LARGURA_MAXIMA, 60))
@@ -558,6 +563,9 @@ class Painel:
         self.hud = 0.0
         self._ultimo_log_hud = 0.0
         self._hud_render_max_ms = 0.0
+        self._diag_tempos = {}
+        self._diag_playlist_ativa = False
+        self._diag_playlist_uri = None
         self._zerar()
 
     def _zerar(self):
@@ -595,13 +603,17 @@ class Painel:
             log(f"Brilho alterado para: {novo}%")
 
     def _fundo(self, ps):
+        inicio_fundo = time.perf_counter()
         def ler(dec):
             return dec.proximo() or Image.new("RGB", (480, 480), (10, 10, 20))
         if ps <= 0.0:
-            return ler(self.fundo_ocioso)
-        if ps >= 1.0:
-            return ler(self.fundo_musica)
-        return Image.blend(ler(self.fundo_ocioso), ler(self.fundo_musica), ps)
+            quadro = ler(self.fundo_ocioso)
+        elif ps >= 1.0:
+            quadro = ler(self.fundo_musica)
+        else:
+            quadro = Image.blend(ler(self.fundo_ocioso), ler(self.fundo_musica), ps)
+        self._diag_tempos["fundo_ms"] = (time.perf_counter() - inicio_fundo) * 1000
+        return quadro
 
     def _girar(self, agora, dt, tocando):
         """Velocidade do disco: acelera suave ao tocar e desacelera até zero ao pausar."""
@@ -626,6 +638,7 @@ class Painel:
         return self.capa.rotate(-a, resample=Image.BICUBIC)   # sentido horário
 
     def _painel(self, snap, agora, dt, tocando):
+        inicio_animacao = time.perf_counter()
         musica = snap.get("musica")
         cap = snap.get("capa")
         cap_playlist = snap.get("capa_playlist") if snap.get("mostrar_capa_playlist") else None
@@ -671,6 +684,7 @@ class Painel:
         self._girar(agora, dt, tocando and not self.exibindo_playlist)
 
         capa_img, cor = None, None
+        self._diag_tempos["transicao_capa"] = self.trans is not None
         if self.trans is not None:
             capa_img, cor, _metade, fim = self.trans.quadro(agora)
             if fim:
@@ -700,6 +714,8 @@ class Painel:
 
         # HUD de volume
         alvo_hud = 1.0 if time.time() < snap.get("volume_exibir_ate", 0.0) else 0.0
+        if self.hud <= 0.0 and alvo_hud > 0.0 and self.pipe is not None:
+            self.pipe.marcar_evento("HUD de volume entrou")
         if self.hud < alvo_hud:
             self.hud = min(alvo_hud, self.hud + dt / HUD_ENTRA)
         elif self.hud > alvo_hud:
@@ -708,10 +724,12 @@ class Painel:
         cor = _cor_rgba(cor)
         snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor,
                     texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
-                    modo_playlist_texto=self.modo_playlist_texto)
+                    modo_playlist_texto=self.modo_playlist_texto, tempo_visual=agora)
         inicio_render = time.perf_counter()
+        self._diag_tempos["animacao_ms"] = (inicio_render - inicio_animacao) * 1000
         quadro = renderizar(snap)
         render_ms = (time.perf_counter() - inicio_render) * 1000
+        self._diag_tempos["desenhar_ms"] = render_ms
 
         if self.hud > 0.01:
             self._hud_render_max_ms = max(self._hud_render_max_ms, render_ms)
@@ -727,7 +745,14 @@ class Painel:
 
         return quadro
 
+    def contexto_diagnostico(self):
+        return {**self._diag_tempos, "playlist": self.exibindo_playlist,
+                "texto_animando": self.t_texto is not None, "hud": self.hud > 0.01}
+
     def quadro(self, agora):
+        self._diag_tempos = {"fundo_ms": 0.0, "animacao_ms": 0.0,
+                             "desenhar_ms": 0.0, "compor_ms": 0.0,
+                             "transicao_capa": False}
         dt = 0.0 if self.t_ultimo is None else min(max(agora - self.t_ultimo, 0.0), 0.2)
         self.t_ultimo = agora
         self._checar_brilho(agora)
@@ -753,6 +778,14 @@ class Painel:
             self._inicio_mensagem_playlist = agora
             self._proxima_mensagem_playlist = agora + 60.0
         mostrar_playlist = bool(uri_playlist and agora < self._mensagem_playlist_ate)
+        if (mostrar_playlist != self._diag_playlist_ativa
+                or (mostrar_playlist and uri_playlist != self._diag_playlist_uri)):
+            self._diag_playlist_ativa = mostrar_playlist
+            self._diag_playlist_uri = uri_playlist if mostrar_playlist else None
+            evento = (f"playlist entrou/trocou: {snap.get('playlist_nome')}"
+                      if mostrar_playlist else "playlist saiu; retorno ao álbum ou pausa")
+            if self.pipe is not None:
+                self.pipe.marcar_evento(evento)
         snap["mostrar_capa_playlist"] = mostrar_playlist
         snap["mensagem_playlist"] = (
             f"Você está ouvindo '{snap.get('playlist_nome')}'"
@@ -789,9 +822,12 @@ class Painel:
             self.estava_tocando = tocando
             return bg
         self.estava_tocando = tocando
+        inicio_compor = time.perf_counter()
         base = bg.convert("RGBA")
         base.alpha_composite(ov)
-        return base.convert("RGB")
+        quadro = base.convert("RGB")
+        self._diag_tempos["compor_ms"] = (time.perf_counter() - inicio_compor) * 1000
+        return quadro
 
 
 def sessao_usb():
@@ -854,6 +890,7 @@ def sessao_usb():
         pipe = ao_vivo.PipelineAoVivo(
             dev, painel.quadro, fps=FPS, kbps=KBPS, parar=parar_sessao, log=log)
         painel.pipe = pipe
+        pipe.contexto = painel.contexto_diagnostico
         try:
             pipe.rodar()
         finally:

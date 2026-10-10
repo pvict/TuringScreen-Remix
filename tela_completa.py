@@ -195,8 +195,6 @@ _cache_marquee_largura = 0
 _cache_halo_cor = None
 _cache_halo_img = None
 
-_cache_vol_anim = None
-_cache_vol_opacidade = 0.0
 _cache_hud_glow_masks = {}
 
 _transicao_musica_atual = None
@@ -204,37 +202,105 @@ _capa_anterior = None
 _transicao_progresso = 1.0  # 1.0 = transição concluída
 
 
+def _atualizar_volume(nivel):
+    """Só publica o valor; o aviso de áudio não desenha nem escreve logs."""
+    vol = min(100, max(0, int(round(nivel * 100))))
+    anterior = estado.get("volume")
+    if anterior is None:
+        estado["volume"] = vol
+    elif vol != anterior:
+        estado.update(volume=vol, volume_exibir_ate=time.monotonic() + 3.0)
+
+
 def _laco_volume():
-    """Lê o volume do Windows em background de forma ultra-rápida e responsiva."""
-    comtypes.CoInitialize()
+    """Recebe avisos do Windows; usa a leitura anterior como alternativa."""
+    # Os callbacks chegam em threads do Windows, sem precisar de um loop de UI.
+    comtypes.CoInitializeEx(comtypes.COINIT_MULTITHREADED)
+    enumerador = monitor_saida = None
+    trocar_saida = threading.Event()
+    ultimo_erro = None
     try:
-        dispositivo = AudioUtilities.GetSpeakers()
-        
         try:
-            volume_interface = dispositivo.EndpointVolume.QueryInterface(IAudioEndpointVolume)
-        except AttributeError:
-            from ctypes import cast, POINTER
-            interface = dispositivo.Activate(IAudioEndpointVolume._iid_, comtypes.CLSCTX_ALL, None)
-            volume_interface = cast(interface, POINTER(IAudioEndpointVolume))
+            from pycaw.callbacks import AudioEndpointVolumeCallback, MMNotificationClient
+        except ImportError:
+            AudioEndpointVolumeCallback = MMNotificationClient = None
+
+        if AudioEndpointVolumeCallback is not None:
+            class AvisoVolume(AudioEndpointVolumeCallback):
+                ativo = True
+
+                def on_notify(self, new_volume, new_mute, event_context,
+                              channels, channel_volumes):
+                    if self.ativo and not parar.is_set():
+                        _atualizar_volume(new_volume)
+
+            class AvisoSaida(MMNotificationClient):
+                def on_default_device_changed(self, flow, flow_id, role,
+                                             role_id, default_device_id):
+                    # GetSpeakers usa a saída multimídia (render=0, role=1).
+                    if flow_id == 0 and role_id == 1:
+                        trocar_saida.set()
+
+            try:
+                enumerador = AudioUtilities.GetDeviceEnumerator()
+                monitor_saida = AvisoSaida()
+                enumerador.RegisterEndpointNotificationCallback(monitor_saida)
+            except Exception as exc:
+                monitor_saida = None
+                log(f"volume: aviso de troca de saída indisponível: {exc}")
 
         while not parar.is_set():
+            callback = volume_interface = None
+            trocar_saida.clear()
             try:
-                # Leitura direta do volume atual do sistema
-                vol = int(round(volume_interface.GetMasterVolumeLevelScalar() * 100))
-                vol_atual = estado.get("volume")
-                
-                if vol_atual is None:
-                    estado["volume"] = vol
-                elif vol_atual != vol:
-                    estado["volume"] = vol
-                    # Mantém o HUD visível por 3 segundos após a última alteração
-                    estado["volume_exibir_ate"] = time.time() + 3.0
-            except Exception as e:
-                log(f"erro lendo volume: {e}")
-            
-            # Reduzido de 0.02 para 0.01 (10ms) para capturar instantaneamente o comando do teclado
-            parar.wait(0.01)
+                dispositivo = AudioUtilities.GetSpeakers()
+                if dispositivo is None:
+                    raise RuntimeError("nenhuma saída de áudio disponível")
+                try:
+                    volume_interface = dispositivo.EndpointVolume.QueryInterface(IAudioEndpointVolume)
+                except AttributeError:
+                    from ctypes import cast, POINTER
+                    interface = dispositivo.Activate(IAudioEndpointVolume._iid_, comtypes.CLSCTX_ALL, None)
+                    volume_interface = cast(interface, POINTER(IAudioEndpointVolume))
+
+                _atualizar_volume(volume_interface.GetMasterVolumeLevelScalar())
+                if AudioEndpointVolumeCallback is not None:
+                    candidato = AvisoVolume()
+                    try:
+                        volume_interface.RegisterControlChangeNotify(candidato)
+                    except Exception as exc:
+                        candidato.ativo = False
+                        log(f"volume: usando leitura direta; aviso indisponível: {exc}")
+                    else:
+                        callback = candidato
+                        # Releitura única cobre uma mudança entre a leitura inicial
+                        # e o registro do aviso, inclusive ao trocar a saída.
+                        _atualizar_volume(volume_interface.GetMasterVolumeLevelScalar())
+                        log("volume: avisos do Windows ativos")
+
+                ultimo_erro = None
+                if callback is not None:
+                    # A thread dorme; os avisos atualizam o estado imediatamente.
+                    while not parar.is_set() and not trocar_saida.wait(0.5):
+                        pass
+                else:
+                    while not parar.is_set() and not trocar_saida.is_set():
+                        _atualizar_volume(volume_interface.GetMasterVolumeLevelScalar())
+                        parar.wait(0.01)
+            except Exception as exc:
+                if str(exc) != ultimo_erro:
+                    ultimo_erro = str(exc)
+                    log(f"erro lendo volume: {exc}")
+                parar.wait(1.0)
+            finally:
+                if callback is not None:
+                    callback.ativo = False
+                    with contextlib.suppress(Exception):
+                        volume_interface.UnregisterControlChangeNotify(callback)
     finally:
+        if monitor_saida is not None:
+            with contextlib.suppress(Exception):
+                enumerador.UnregisterEndpointNotificationCallback(monitor_saida)
         comtypes.CoUninitialize()
 
 
@@ -242,7 +308,6 @@ def renderizar(snap):
     global _cache_marquee_pos
     global _cache_marquee_titulo, _cache_marquee_img, _cache_marquee_largura
     global _cache_halo_cor, _cache_halo_img
-    global _cache_vol_anim, _cache_vol_opacidade
 
     img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -418,80 +483,56 @@ def renderizar(snap):
 
 # 5. Overlay de Volume
     vol_real = snap.get("volume")
-    exibir_ate = snap.get("volume_exibir_ate", 0)
-    
-    if _cache_vol_anim is None and vol_real is not None:
-        _cache_vol_anim = float(vol_real)
-        
     if vol_real is not None:
-        if vol_real is not None:
-            # Aumentamos a velocidade de transição de 0.4 para 0.8 para o indicador acompanhar o dedo instantaneamente
-            _cache_vol_anim += (vol_real - _cache_vol_anim) * 0.8
-        
-        agora = time.time()
-        
+        vol_visual = snap.get("volume_visual", vol_real)
         hud_a = snap.get("hud_alpha")
         if hud_a is None:
-            hud_a = 1.0 if agora < exibir_ate else 0.0
+            hud_a = 1.0 if time.monotonic() < snap.get("volume_exibir_ate", 0.0) else 0.0
         if hud_a > 0.01:
             from PIL import ImageFilter
-            
             opac = int(255 * hud_a)
             layer_hud = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
             d_hud = ImageDraw.Draw(layer_hud)
-            
-            raio_vol = 175         
-            tamanho_tick = 12      
-            espessura_tick = 3     
-            num_ticks = 46         
-            
-            angulo_inicio = 140
-            angulo_fim = 400
-            
-            vol_percentual = _cache_vol_anim / 100.0
-            
+            vol_percentual = min(1.0, max(0.0, vol_visual / 100.0))
+            marcas_preenchidas = vol_percentual * HUD_NUM_MARCAS
             cor_ativa = (255, 255, 255, opac)
             if cor_destaque:
                 cor_ativa = (cor_destaque[0], cor_destaque[1], cor_destaque[2], opac)
-                
             cor_inativa = (80, 80, 80, int(100 * hud_a))
-            
-            # --- DESENHO DOS TICKS PRINCIPAIS ---
-            for i in range(num_ticks):
-                frac = i / (num_ticks - 1)
-                ang_deg = angulo_inicio + (angulo_fim - angulo_inicio) * frac
-                ang_rad = math.radians(ang_deg)
-                
-                x_in = cx + (raio_vol - tamanho_tick / 2) * math.cos(ang_rad)
-                y_in = cy + (raio_vol - tamanho_tick / 2) * math.sin(ang_rad)
-                x_out = cx + (raio_vol + tamanho_tick / 2) * math.cos(ang_rad)
-                y_out = cy + (raio_vol + tamanho_tick / 2) * math.sin(ang_rad)
-                
-                cor_tick = cor_ativa if frac <= vol_percentual else cor_inativa
-                d_hud.line([(x_in, y_in), (x_out, y_out)], fill=cor_tick, width=espessura_tick)
-            
-            # --- EFEITO DE GLOW OTIMIZADO (ALTA VISIBILIDADE & ZERO LAG) ---
-            # Criamos uma camada miniatura (120x120, um quarto do tamanho) para o desfoque voar no processamento
-            # Reutiliza a máscara desfocada; ela só depende do número de marcas ativas.
-            ticks_ativos = sum(1 for i in range(num_ticks) if i / (num_ticks - 1) <= vol_percentual)
+
+            # O arco fino e a ponta se movem continuamente entre as marcas.
+            # São formas simples, sem desfoque adicional por quadro.
+            if vol_percentual > 0.0:
+                angulo_ponta = HUD_ANGULO_INICIO + HUD_ARCO * vol_percentual
+                d_hud.arc((cx - HUD_RAIO, cy - HUD_RAIO, cx + HUD_RAIO, cy + HUD_RAIO),
+                          HUD_ANGULO_INICIO, angulo_ponta,
+                          fill=(*cor_ativa[:3], int(opac * 0.45)), width=1)
+                rad_ponta = math.radians(angulo_ponta)
+                x_ponta = cx + HUD_RAIO * math.cos(rad_ponta)
+                y_ponta = cy + HUD_RAIO * math.sin(rad_ponta)
+                d_hud.ellipse((x_ponta - 2, y_ponta - 2, x_ponta + 2, y_ponta + 2),
+                              fill=cor_ativa)
+
+            # Só a marca parcialmente preenchida precisa de mistura de cor.
+            for i, segmento in enumerate(HUD_MARCAS):
+                preenchimento = marcas_preenchidas - i
+                if preenchimento >= 1.0:
+                    cor_tick = cor_ativa
+                elif preenchimento <= 0.0:
+                    cor_tick = cor_inativa
+                else:
+                    cor_tick = tuple(round(a + (b - a) * preenchimento)
+                                     for a, b in zip(cor_inativa, cor_ativa))
+                d_hud.line(segmento, fill=cor_tick, width=HUD_ESPESSURA)
+
+            # Mantém o cache de no máximo 47 máscaras do glow original.
+            ticks_ativos = min(HUD_NUM_MARCAS, math.ceil(marcas_preenchidas))
             mascara_glow = _cache_hud_glow_masks.get(ticks_ativos)
             if mascara_glow is None:
                 layer_glow_mini = Image.new("L", (120, 120), 0)
                 d_glow_mini = ImageDraw.Draw(layer_glow_mini)
-                raio_vol_mini = raio_vol / 4.0
-                tamanho_tick_mini = tamanho_tick / 4.0
-                espessura_tick_mini = max(1, espessura_tick / 4.0)
-                cx_p, cy_p = 60, 60
-                for i in range(ticks_ativos):
-                    frac = i / (num_ticks - 1)
-                    ang_deg = angulo_inicio + (angulo_fim - angulo_inicio) * frac
-                    ang_rad = math.radians(ang_deg)
-                    x_in = cx_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.cos(ang_rad)
-                    y_in = cy_p + (raio_vol_mini - tamanho_tick_mini / 2) * math.sin(ang_rad)
-                    x_out = cx_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.cos(ang_rad)
-                    y_out = cy_p + (raio_vol_mini + tamanho_tick_mini / 2) * math.sin(ang_rad)
-                    d_glow_mini.line([(x_in, y_in), (x_out, y_out)], fill=255,
-                                     width=int(espessura_tick_mini + 2))
+                for segmento in HUD_MARCAS_MINI[:ticks_ativos]:
+                    d_glow_mini.line(segmento, fill=255, width=3)
                 mascara_glow = layer_glow_mini.filter(ImageFilter.GaussianBlur(4)).resize(
                     (480, 480), Image.BILINEAR
                 )
@@ -529,8 +570,33 @@ FADE_SAI = 1.0           # s do crossfade música -> ocioso
 TEXTO_SAI = 0.30         # s para o texto antigo sumir ao trocar de faixa
 TEXTO_ENTRA = 0.40       # s para o texto novo aparecer
 TEXTO_DESLOC = 12        # px que o texto desliza ao sumir/aparecer
-HUD_ENTRA = 0.15         # s de fade do HUD de volume ao aparecer
+HUD_ENTRA = 0.10         # s de fade do HUD de volume ao aparecer
 HUD_SAI = 0.40           # s de fade do HUD de volume ao sumir
+HUD_VOLUME_TAU = 0.06    # s: alcança ~90% de uma mudança em 0,14 s, sem saltos
+HUD_NUM_MARCAS = 46
+HUD_RAIO = 175
+HUD_TAMANHO_MARCA = 12
+HUD_ESPESSURA = 3
+HUD_ANGULO_INICIO = 140
+HUD_ARCO = 260
+
+
+def _geometria_hud():
+    """Calcula as posições uma vez, fora do caminho de renderização."""
+    segmentos = []
+    for i in range(HUD_NUM_MARCAS):
+        angulo = math.radians(HUD_ANGULO_INICIO + HUD_ARCO * i / (HUD_NUM_MARCAS - 1))
+        coseno, seno = math.cos(angulo), math.sin(angulo)
+        dentro = HUD_RAIO - HUD_TAMANHO_MARCA / 2
+        fora = HUD_RAIO + HUD_TAMANHO_MARCA / 2
+        segmentos.append(((240 + dentro * coseno, 240 + dentro * seno),
+                          (240 + fora * coseno, 240 + fora * seno)))
+    return tuple(segmentos)
+
+
+HUD_MARCAS = _geometria_hud()
+HUD_MARCAS_MINI = tuple(tuple((x / 4, y / 4) for x, y in segmento)
+                       for segmento in HUD_MARCAS)
 
 
 def _suave(x):
@@ -561,6 +627,7 @@ class Painel:
         self.t_pausa = None
         self.p = 0.0
         self.hud = 0.0
+        self.volume_anim = None
         self._ultimo_log_hud = 0.0
         self._hud_render_max_ms = 0.0
         self._diag_tempos = {}
@@ -713,7 +780,17 @@ class Painel:
                     ta, dy = u, TEXTO_DESLOC * (1 - u)
 
         # HUD de volume
-        alvo_hud = 1.0 if time.time() < snap.get("volume_exibir_ate", 0.0) else 0.0
+        volume_alvo = snap.get("volume")
+        if volume_alvo is not None:
+            if self.volume_anim is None:
+                self.volume_anim = float(volume_alvo)
+            else:
+                # Usa o mesmo relógio de quadros que mantém o giro da capa suave.
+                fator = -math.expm1(-dt / HUD_VOLUME_TAU)
+                self.volume_anim += (volume_alvo - self.volume_anim) * fator
+                if abs(volume_alvo - self.volume_anim) < 0.03:
+                    self.volume_anim = float(volume_alvo)
+        alvo_hud = 1.0 if time.monotonic() < snap.get("volume_exibir_ate", 0.0) else 0.0
         if self.hud <= 0.0 and alvo_hud > 0.0 and self.pipe is not None:
             self.pipe.marcar_evento("HUD de volume entrou")
         if self.hud < alvo_hud:
@@ -724,6 +801,7 @@ class Painel:
         cor = _cor_rgba(cor)
         snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor,
                     texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
+                    volume_visual=self.volume_anim,
                     modo_playlist_texto=self.modo_playlist_texto, tempo_visual=agora)
         inicio_render = time.perf_counter()
         self._diag_tempos["animacao_ms"] = (inicio_render - inicio_animacao) * 1000

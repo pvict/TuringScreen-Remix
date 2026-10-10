@@ -24,7 +24,7 @@ LADO = 480
 BYTES_QUADRO = LADO * LADO * 3
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 TAM_PEDACO = 65536          # maior pedaço lido do ffmpeg por vez
-LIMITE_FILA = 60            # acima disso, quem gera quadros espera (não perde dados)
+LIMITE_FILA_BYTES = 64 * 1024  # ~0,1 s a 5 Mbps; o gerador espera, sem perder dados
 MAX_LOTE = 160_000          # limite rígido por comando 121 (a CLI usa 202752)
 USB_LIMPEZA_MS = 5         # espera extra após a resposta; a biblioteca usa 100 ms
 FILA_TELA_MAX = 2          # resposta[8]: fila interna, não um código de sucesso
@@ -225,6 +225,27 @@ class FundoDecoder:
             pass
 
 
+class FilaVideo(queue.Queue):
+    """Conta os bytes sob o mesmo lock já usado pela fila de saída."""
+
+    def _init(self, maxsize):
+        super()._init(maxsize)
+        self._bytes = 0
+
+    def _put(self, item):
+        super()._put(item)
+        self._bytes += len(item[1])
+
+    def _get(self):
+        item = super()._get()
+        self._bytes -= len(item[1])
+        return item
+
+    def bytes_pendentes(self):
+        with self.mutex:
+            return self._bytes
+
+
 class Codificador:
     """ffmpeg em tempo real: recebe quadros RGB, entrega H.264 (Annex B)."""
 
@@ -244,7 +265,7 @@ class Codificador:
             creationflags=SEM_JANELA,
         )
         _monitorar_stderr(self.proc, "codificador NVENC", log)
-        self.saida = queue.Queue()
+        self.saida = FilaVideo()
         self._leitor = threading.Thread(target=self._ler, daemon=True)
         self._leitor.start()
 
@@ -414,7 +435,7 @@ class EnviadorUSB(threading.Thread):
         falhas_seguidas = 0
         try:
             if self.log:
-                self.log(f"vídeo USB: limpeza extra={USB_LIMPEZA_MS}ms; timeout da resposta=2000ms; controle fila_tela máximo={FILA_TELA_MAX}")
+                self.log(f"vídeo USB: limpeza extra={USB_LIMPEZA_MS}ms; timeout da resposta=2000ms; controle fila_tela máximo={FILA_TELA_MAX}; limite fila_pc={LIMITE_FILA_BYTES} bytes")
             while not self.parar.is_set():
                 while not self.comandos.empty():
                     self.comandos.get()(self.dev)
@@ -444,7 +465,8 @@ class EnviadorUSB(threading.Thread):
                 if self.log and (falha_resposta or agora_log - self._ultimo_log_video >= intervalo_log):
                     self.log(
                         f"vídeo USB: resposta={status} lote={len(dados)} bytes "
-                        f"fila_pc={fila} fila_tela={status} latência={lat:.3f}s suspeito={anomalia} "
+                        f"fila_pc={fila} fila_pc_bytes={self.cod.saida.bytes_pendentes()} "
+                        f"fila_tela={status} latência={lat:.3f}s suspeito={anomalia} "
                         f"espera_fila={t0 - t_chegada:.3f}s envio={t1 - t0:.3f}s"
                     )
                     self._ultimo_log_video = agora_log
@@ -551,8 +573,11 @@ class PipelineAoVivo:
                     break
                 if self.env.erro:
                     raise self.env.erro
-                if self.cod.saida.qsize() > LIMITE_FILA:
-                    time.sleep(0.005)
+                # Limita a antecipação do vídeo no PC por bytes, pois read1()
+                # entrega pedaços de tamanhos diferentes. A fila da tela e os
+                # bytes H.264 já produzidos continuam sob o controle do USB.
+                if self.cod.saida.bytes_pendentes() >= LIMITE_FILA_BYTES:
+                    self.parar.wait(0.005)
                     continue
                 tg = time.monotonic()
                 # O H.264 apresenta cada quadro com duração de 1/fps. As animações

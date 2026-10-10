@@ -31,8 +31,8 @@ FILA_TELA_MAX = 2          # resposta[8]: fila interna, não um código de suces
 INTERVALO_FILA_TELA = 0.01
 TIMEOUT_FILA_TELA = 2.0
 
-# Diagnóstico temporário: janela curta em memória e seis capturas em disco.
-DIAGNOSTICO_VIDEO = True
+# Capturas opcionais: reative se precisar investigar stutter ou mosaico.
+DIAGNOSTICO_VIDEO = False
 CAPTURA_ANTES = 6.0
 CAPTURA_DEPOIS = 15.0
 CAPTURA_MEMORIA_MAX = 6 * 1024 * 1024

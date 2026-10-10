@@ -84,10 +84,12 @@ def realcar(cor):
 
     # --- TRATAMENTO AUTOMÁTICO PARA ROSA / CARMIM ---
     # Detecta rosa mesmo quando a capa contém bastante verde (ex.: 255, 76, 128).
-    # Os limites relativos mantêm laranjas/salmões fora deste ajuste; as demais
-    # calibrações e os fatores de saída deste ramo permanecem inalterados.
+    # Vermelhos com matiz próximo de 360° (ex.: 190, 42, 50) seguem a calibração
+    # de vermelho dominante abaixo. Os rosas já tratados acima são preservados.
+    # Os limites relativos também mantêm laranjas/salmões fora deste ajuste.
     if (
         r > 120
+        and h_original < 0.985
         and g < r * 0.35
         and r * 0.2 < b < r * 0.8
         and b > g * 1.1

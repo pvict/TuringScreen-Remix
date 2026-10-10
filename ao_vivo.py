@@ -203,10 +203,12 @@ class FundoDecoder:
 
     def __init__(self, caminho, fps=30, log=None, nome="fundo"):
         self.proc = subprocess.Popen(
-            ["ffmpeg", "-loglevel", "warning", "-stream_loop", "-1", "-i", caminho,
+            ["ffmpeg", "-nostdin", "-loglevel", "warning", "-stream_loop", "-1", "-i", caminho,
              "-vf", f"scale={LADO}:{LADO}", "-r", str(fps),
              "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            # O stdin do script recebe os comandos da interface. Herdá-lo faz
+            # o FFmpeg esperar entrada nesse pipe antes de produzir o vídeo.
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             creationflags=SEM_JANELA,
         )
         _monitorar_stderr(self.proc, nome, log)

@@ -1,6 +1,7 @@
 import asyncio
 import colorsys
 import datetime
+import hashlib
 import io
 import logging
 import math
@@ -18,7 +19,7 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 import libusb_package
 import usb.util
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from winrt.windows.media.control import (
     GlobalSystemMediaTransportControlsSessionManager as MediaManager,
 )
@@ -32,6 +33,8 @@ from turingscreencli.transport import (
 import ao_vivo
 import animacao_capa
 from spotify_playlist import SpotifyPlaylistWatcher
+from controle_interface import Controles, iniciar_ponte, reservar_execucao, liberar_execucao
+from fundo_usuario import FundoOcioso
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -58,26 +61,34 @@ ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
 KBPS = 5000               # reduz a fila USB mantendo o alvo de 60 FPS
+PLAYLIST_DURACAO = 5.0
 PROXIMA_ANTECEDENCIA = 22.0
 PROXIMA_DURACAO = 7.0
 PROXIMA_RETORNO_ALBUM = PROXIMA_ANTECEDENCIA - PROXIMA_DURACAO
 
 parar = threading.Event()
+controles = Controles(interface="--interface" in sys.argv)
 estado = {
     "musica": None, "capa": None, "cor_capa": (30, 215, 96, 255),
     "cor_viva": (30, 215, 96, 255),
     "capa_playlist": None, "cor_playlist": None, "cor_viva_playlist": None,
     "playlist_uri": None, "playlist_nome": None, "playlist_evento": 0,
     "reproducao_id": 0, "proxima_faixa": None,
+    "pedido_capa_album": None, "capa_album_api": None,
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
     "midia_pronta": False,
     "volume": None, "volume_exibir_ate": 0.0,
+    "modo_exibicao": controles.config["modo"], "ultima_midia": None,
+    "tela_conectada": False, "erro_interface": "",
+    "visual_disco": None,
+    "fundo_ocioso_ativo": None, "erro_fundo": "",
 }
 
 
 def log(msg):
     linha = f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} {msg}"
-    print(linha)
+    if "--interface" not in sys.argv:
+        print(linha)
     try:
         with open("tela.log", "a", encoding="utf-8") as f:
             f.write(linha + "\n")
@@ -89,12 +100,15 @@ BRILHO_DIA = 100
 
 
 def brilho_para(agora):
+    # O botão de desligar atua só no backlight; o brilho dos LEDs é independente.
+    if controles.config["brilho"] is not None:
+        return controles.config["brilho"]
     h = agora.hour
-    if 1 <= h < 7:
-        return 30
-    if h >= 18 or h < 1:
-        return 60
-    return BRILHO_DIA
+    return 30 if 1 <= h < 7 else (60 if h >= 18 or h < 1 else BRILHO_DIA)
+
+
+def brilho_tela_para(agora):
+    return brilho_para(agora) if controles.config["tela_ligada"] else 0
 
 
 def fonte(nome_arquivo, tamanho):
@@ -208,6 +222,39 @@ def atualizar_proxima_faixa(reproducao, uri, nome, dados, duracao_spotify):
         log(f"Spotify a seguir: erro preparando a capa: {exc}")
 
 
+def atualizar_capa_album(pedido_id, musica, uri, dados):
+    """Prepara na thread da API; só o monitor da mídia aplica o resultado à tela."""
+    pedido = estado.get("pedido_capa_album")
+    if not pedido or pedido["id"] != pedido_id or estado.get("musica") != musica:
+        return False
+    try:
+        capa, cor, cor_viva = preparar_capa(dados)
+        pedido = estado.get("pedido_capa_album")
+        if not pedido or pedido["id"] != pedido_id or estado.get("musica") != musica:
+            return False
+        estado["capa_album_api"] = {
+            "pedido_id": pedido_id, "musica": musica, "uri": uri,
+            "capa": capa, "cor_capa": cor, "cor_viva": cor_viva,
+        }
+        return True
+    except Exception as exc:
+        log(f"Spotify capa: erro preparando a imagem do álbum: {exc}")
+        return False
+
+
+def capas_equivalentes(atual, nova):
+    """Tolera diferenças de JPEG/tamanho sem trocar a imagem ou as cores já calibradas."""
+    if atual is nova:
+        return True
+    if atual is None or nova is None:
+        return False
+    pequena_atual = atual.convert("RGB").resize((32, 32), Image.BILINEAR)
+    pequena_nova = nova.convert("RGB").resize((32, 32), Image.BILINEAR)
+    diferenca = ImageChops.difference(pequena_atual, pequena_nova)
+    mascara = atual.getchannel("A").resize((32, 32), Image.BILINEAR)
+    return sum(ImageStat.Stat(diferenca, mask=mascara).mean) / 3 <= 6.0
+
+
 _cache_marquee_pos = 0.0
 _cache_marquee_titulo = None
 _cache_marquee_img = None
@@ -215,6 +262,8 @@ _cache_marquee_largura = 0
 
 _cache_halo_cor = None
 _cache_halo_img = None
+_cache_halo_fade = (None, -1, None)
+_cache_capa_escala = (None, 0, None)
 
 _cache_hud_glow_masks = {}
 
@@ -329,6 +378,8 @@ def renderizar(snap):
     global _cache_marquee_pos
     global _cache_marquee_titulo, _cache_marquee_img, _cache_marquee_largura
     global _cache_halo_cor, _cache_halo_img
+    global _cache_halo_fade
+    global _cache_capa_escala
 
     img = Image.new("RGBA", (480, 480), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -361,8 +412,18 @@ def renderizar(snap):
             _cache_halo_img = camada_halo.resize((480, 480), Image.BILINEAR)
 
         if _cache_halo_img is not None:
-            img = Image.alpha_composite(img, _cache_halo_img)
-            d = ImageDraw.Draw(img)
+            nivel_glow = round(255 * snap.get("glow_alpha", 1.0))
+            if nivel_glow > 0:
+                halo_img = _cache_halo_img
+                if nivel_glow < 255:
+                    origem, nivel, atenuado = _cache_halo_fade
+                    if origem is not halo_img or nivel != nivel_glow:
+                        atenuado = halo_img.copy()
+                        atenuado.putalpha(halo_img.getchannel("A").point(lambda a: a * nivel_glow // 255))
+                        _cache_halo_fade = (halo_img, nivel_glow, atenuado)
+                    halo_img = atenuado
+                img = Image.alpha_composite(img, halo_img)
+                d = ImageDraw.Draw(img)
     else:
         _cache_halo_cor = None
         _cache_halo_img = None
@@ -389,17 +450,30 @@ def renderizar(snap):
         _prog_suave += (pos_alvo - _prog_suave) * 0.25
         
         frac = min(max(_prog_suave / duracao, 0), 1)
+        frac *= snap.get("progresso_preenchimento", 1.0)
         ang_fim = -90 + 360 * frac
 
-        # 2. Arco ativo principal com transição ultra suave
-        d.arc(
-            (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
-            -90, ang_fim, fill=cor_destaque, width=4
-        )
+        # Na pausa, só o preenchimento colorido se dissolve na trilha neutra.
+        alfa_arco = snap.get("progresso_alpha", 1.0)
+        if alfa_arco > 0.001 and frac > 0.00001:
+            cor_arco = tuple(round(255 + (c - 255) * alfa_arco) for c in cor_destaque[:3])
+            cor_arco += (round(35 + (255 - 35) * alfa_arco),)
+            d.arc(
+                (cx - raio_anel, cy - raio_anel, cx + raio_anel, cy + raio_anel),
+                -90, ang_fim, fill=cor_arco, width=4
+            )
 
     # 3. Capa do Álbum (Perfeitamente redonda, instantânea e leve)
     capa = snap.get("capa")
     if capa is not None and musica:
+        escala = snap.get("escala_capa", 1.0)
+        if escala < 0.999:
+            lado = max(1, round(capa.width * escala))
+            anterior, tamanho, reduzida = _cache_capa_escala
+            if anterior is not capa or tamanho != lado:
+                reduzida = capa.resize((lado, lado), Image.Resampling.BICUBIC)
+                _cache_capa_escala = (capa, lado, reduzida)
+            capa = reduzida
         x_capa = cx - (capa.width // 2)
         y_capa = cy - (capa.height // 2)
         
@@ -655,6 +729,24 @@ class Painel:
         self._diag_tempos = {}
         self._diag_playlist_ativa = False
         self._diag_playlist_uri = None
+        self._revisao_brilho = controles.revisao
+        self._quadro_apagado = Image.new("RGB", (480, 480), (0, 0, 0))
+        self._ultimo_fundo_vinil = None
+        self._seguinte_fundo_vinil = None
+        self._fase_fundo_vinil = 0.0
+        self._cache_fundo_vinil = (None, None, None, None)
+        self._dt_fundo = 0.0
+        self._pausa = animacao_capa.PausaSuave()
+        self._escala_capa, self._alfa_progresso = 1.0, 1.0
+        self._cache_giro = (None, None, None)
+        self._angulo_fundo, self._vel_fundo = 0.0, 0.0
+        self._alvo_fundo, self._t_fundo, self._v0_fundo = None, 0.0, 0.0
+        # A retomada sobrevive ao reset do painel quando só o fundo está visível.
+        self._retomar_giro_dinamico = False
+        self._capa_retomada_dinamica = None
+        self._cor_retomada_dinamica = None
+        # O mesmo contexto não é anunciado novamente ao voltar do vídeo ocioso.
+        self._playlist_evento_visto = 0
         # Sobrevivem à pausa: o mesmo aviso não entra duas vezes na mesma faixa.
         self._proxima_reproducao = None
         self._proxima_ja_mostrada = False
@@ -686,16 +778,18 @@ class Painel:
         self._musica_atual = None
         self._cor_album_atual = None
         self._playlist_uri_timer = None
-        self._playlist_evento_visto = 0
         self._proxima_mensagem_playlist = None
         self._mensagem_playlist_ate = 0.0
         self._inicio_mensagem_playlist = None
 
     def _checar_brilho(self, agora):
-        if agora - self.t_brilho < 2.0 or self.pipe is None:
+        if self.pipe is None:
             return
+        if controles.revisao == self._revisao_brilho and agora - self.t_brilho < 2.0:
+            return
+        self._revisao_brilho = controles.revisao
         self.t_brilho = agora
-        novo = brilho_para(datetime.datetime.now())
+        novo = brilho_tela_para(datetime.datetime.now())
         if novo != self.brilho:
             self.brilho = novo
             # só a thread do USB fala com a tela
@@ -705,6 +799,46 @@ class Painel:
     def _fundo(self, ps):
         inicio_fundo = time.perf_counter()
         def ler(dec):
+            if dec is self.fundo_musica and controles.config["modo"] in ("spotify", "dinamico"):
+                # Dois quadros vizinhos: interpola a fração durante a frenagem,
+                # em vez de alternar entre congelar e saltar um quadro inteiro.
+                # No modo dinâmico, mantém a mesma parada suave enquanto o
+                # painel aguarda e faz a transição para o vídeo ocioso.
+                if self._ultimo_fundo_vinil is None:
+                    self._ultimo_fundo_vinil = dec.proximo()
+                    self._seguinte_fundo_vinil = dec.proximo()
+                velocidade_relativa = self._vel_fundo / max(ROTACAO_GRAUS_S, 1)
+                # O pipeline chama uma vez por quadro codificado. Em velocidade
+                # plena avança exatamente um quadro, sem erro acumulado do float.
+                avanco = (1.0 if self._dt_fundo > 0 else 0.0) if velocidade_relativa >= 0.999 else (
+                    velocidade_relativa * FPS * self._dt_fundo)
+                self._fase_fundo_vinil += avanco
+                while self._fase_fundo_vinil >= 1.0:
+                    self._fase_fundo_vinil -= 1.0
+                    self._ultimo_fundo_vinil = self._seguinte_fundo_vinil
+                    self._seguinte_fundo_vinil = dec.proximo()
+                atual, seguinte = self._ultimo_fundo_vinil, self._seguinte_fundo_vinil
+                if atual is None:
+                    return Image.new("RGB", (480, 480), (10, 10, 20))
+                if velocidade_relativa >= 0.999:
+                    # Em velocidade normal, segue um quadro por vez sem mistura.
+                    return atual
+                # A interpolação entra/sai aos poucos perto da velocidade plena.
+                mistura = self._fase_fundo_vinil * _suave(min(1.0, (1 - velocidade_relativa) / 0.12))
+                if seguinte is None or mistura < 0.001:
+                    return atual
+                if mistura > 0.999:
+                    return seguinte
+                origem, destino, fase, quadro = self._cache_fundo_vinil
+                if origem is atual and destino is seguinte and fase == mistura:
+                    return quadro
+                quadro = Image.blend(atual, seguinte, mistura)
+                self._cache_fundo_vinil = (atual, seguinte, mistura, quadro)
+                return quadro
+            if dec is self.fundo_musica:
+                # No modo Só vídeo, uma eventual saída do vinil usa leitura normal.
+                self._ultimo_fundo_vinil = self._seguinte_fundo_vinil = None
+                self._fase_fundo_vinil = 0.0
             return dec.proximo() or Image.new("RGB", (480, 480), (10, 10, 20))
         if ps <= 0.0:
             quadro = ler(self.fundo_ocioso)
@@ -720,22 +854,41 @@ class Painel:
         alvo = ROTACAO_GRAUS_S if tocando else 0.0
         if alvo != self._v_alvo:
             self._v_alvo, self._r_t0, self._r_v0 = alvo, agora, self.vel
-        if alvo == 0.0:
-            u = min((agora - self._r_t0) / TEMPO_FREAR, 1.0)
-            self.vel = self._r_v0 * (1 - u) ** 2
+        if controles.config["modo"] == "spotify" or alvo == 0.0:
+            duracao = TEMPO_FREAR if alvo == 0.0 else TEMPO_ACELERAR
+            u = min(max((agora - self._r_t0) / duracao, 0.0), 1.0)
+            # Velocidade e aceleração chegam suavemente aos dois extremos.
+            suave = u ** 3 * (u * (6 * u - 15) + 10)
+            self.vel = self._r_v0 + (alvo - self._r_v0) * suave
         else:
             u = min((agora - self._r_t0) / TEMPO_ACELERAR, 1.0)
             self.vel = self._r_v0 + (alvo - self._r_v0) * _suave(u)
         if self.trans is None:      # durante o giro de troca de capa o disco fica na posição 0
             self.angulo = (self.angulo + self.vel * dt) % 360
 
+    def _girar_fundo(self, agora, dt, tocando):
+        # O vinil segue a reprodução mesmo quando a capa da playlist fica parada.
+        alvo = ROTACAO_GRAUS_S if tocando else 0.0
+        if alvo != self._alvo_fundo:
+            self._alvo_fundo, self._t_fundo, self._v0_fundo = alvo, agora, self._vel_fundo
+        duracao = TEMPO_ACELERAR if tocando else TEMPO_FREAR
+        u = min(1.0, max(0.0, (agora - self._t_fundo) / duracao))
+        suave = u ** 3 * (u * (6 * u - 15) + 10)
+        self._vel_fundo = self._v0_fundo + (alvo - self._v0_fundo) * suave
+        self._angulo_fundo = (self._angulo_fundo + self._vel_fundo * dt) % 360
+
     def _capa_girada(self):
         if self.capa is None:
             return None
         a = self.angulo % 360
+        origem, angulo, girada = self._cache_giro
+        if origem is self.capa and angulo == a:
+            return girada
         if a < 0.05 or a > 359.95:
             return self.capa
-        return self.capa.rotate(-a, resample=Image.BICUBIC)   # sentido horário
+        girada = self.capa.rotate(-a, resample=Image.BICUBIC)   # sentido horário
+        self._cache_giro = (self.capa, a, girada)
+        return girada
 
     def _painel(self, snap, agora, dt, tocando):
         inicio_animacao = time.perf_counter()
@@ -747,8 +900,10 @@ class Painel:
         # A paleta da tela e dos LEDs continua vindo da capa do álbum.
         cor_base = snap.get("cor_viva") or snap.get("cor_capa")
         cor_nova = _cor_rgba(cor_base)
+        giro_retomada = (controles.config["modo"] == "dinamico" and tocando
+                         and self._retomar_giro_dinamico)
 
-        if tocando:
+        if musica is not None:
             self._album_atual, self._musica_atual = cap, musica
             self._cor_album_atual = cor_nova
         restaurar_pausado = not tocando and self.exibindo_proxima
@@ -756,7 +911,7 @@ class Painel:
             # Ao pausar o aviso, volta ao álbum enquanto o disco desacelera.
             cap, musica, cor_nova = self._album_atual, self._musica_atual, self._cor_album_atual
 
-        if tocando or restaurar_pausado:
+        if musica is not None or restaurar_pausado:
             # Texto da faixa e aviso da playlist compartilham a mesma animação.
             rotulo_alvo = "A seguir" if proxima else (
                 "Você está ouvindo" if snap.get("mensagem_playlist") else None)
@@ -779,24 +934,46 @@ class Painel:
             capa_alvo = cap_aviso if cap_aviso is not None else cap
             self.exibindo_playlist = cap_aviso is not None
             self.exibindo_proxima = proxima is not None
-            if capa_alvo is not None and capa_alvo is not self.alvo:
+            if capa_alvo is not None and (capa_alvo is not self.alvo or giro_retomada):
                 retomou_mesma = (
                     cap_aviso is None and not self.estava_tocando
                     and self.capa is not None and musica == self.titulo
                 )
-                if retomou_mesma:
+                if retomou_mesma and not giro_retomada:
                     self.alvo, self.capa, self.cor = capa_alvo, capa_alvo, cor_nova
                 else:
                     if self.trans is not None and self.destino is not None:
                         self.capa, self.cor = self.destino
                     ant = self._capa_girada()
+                    cor_ant = self.cor
+                    if giro_retomada:
+                        # Mesmo álbum: vira a capa novamente, como numa troca.
+                        # Após o vídeo ocioso, usa a imagem preservada da pausa.
+                        if ant is None:
+                            ant = self._capa_retomada_dinamica
+                            cor_ant = self._cor_retomada_dinamica
+                        if ant is None:
+                            ant = capa_alvo
                     self.alvo = capa_alvo
                     self.destino = (capa_alvo, cor_nova)
                     self.angulo = 0.0
                     self.trans = animacao_capa.TransicaoCapa(
-                        ant, self.cor, capa_alvo, cor_nova, inicio=agora)
+                        ant, cor_ant, capa_alvo, cor_nova, inicio=agora,
+                        estilo="giro" if giro_retomada else animacao_capa.ESTILO)
+                if giro_retomada:
+                    self._retomar_giro_dinamico = False
+                    self._capa_retomada_dinamica = None
+                    self._cor_retomada_dinamica = None
 
         self._girar(agora, dt, tocando and not self.exibindo_playlist)
+        if controles.config["modo"] == "spotify":
+            self._escala_capa, self._alfa_progresso = self._pausa.quadro(not tocando, dt)
+        else:
+            if (self._pausa.tempo or self._pausa._pausado
+                    or self._pausa.glow != 1.0 or self._pausa.preenchimento != 1.0
+                    or self._pausa._retorno_t is not None):
+                self._pausa.resetar()
+            self._escala_capa, self._alfa_progresso = 1.0, 1.0
 
         capa_img, cor = None, None
         self._diag_tempos["transicao_capa"] = self.trans is not None
@@ -852,7 +1029,10 @@ class Painel:
                     texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
                     volume_visual=self.volume_anim,
                     modo_playlist_texto=self.modo_playlist_texto,
-                    rotulo_aviso=self.rotulo_aviso, tempo_visual=agora)
+                    rotulo_aviso=self.rotulo_aviso, tempo_visual=agora,
+                    escala_capa=self._escala_capa, progresso_alpha=self._alfa_progresso,
+                    glow_alpha=self._pausa.glow,
+                    progresso_preenchimento=self._pausa.preenchimento)
         inicio_render = time.perf_counter()
         self._diag_tempos["animacao_ms"] = (inicio_render - inicio_animacao) * 1000
         quadro = renderizar(snap)
@@ -872,6 +1052,19 @@ class Painel:
                 self._hud_render_max_ms = 0.0
 
         return quadro
+
+    def _publicar_visual(self, visivel):
+        if not controles.interface:
+            return
+        # Troca atômica da referência; a janela recebe números, não quadros do vídeo.
+        estado["visual_disco"] = {
+            "angulo": self.angulo,
+            "velocidade": self.vel if visivel and self.trans is None else 0.0,
+            "angulo_disco": self._angulo_fundo,
+            "velocidade_disco": self._vel_fundo if visivel else 0.0,
+            "escala": self._escala_capa, "visivel": bool(visivel),
+            "instante": time.monotonic(), "capa": self.capa,
+        }
 
     def contexto_diagnostico(self):
         return {**self._diag_tempos, "playlist": self.exibindo_playlist,
@@ -911,10 +1104,27 @@ class Painel:
                              "transicao_capa": False}
         dt = 0.0 if self.t_ultimo is None else min(max(agora - self.t_ultimo, 0.0), 0.2)
         self.t_ultimo = agora
+        self._dt_fundo = dt
         self._checar_brilho(agora)
+        if not controles.config["tela_ligada"]:
+            self._publicar_visual(False)
+            return self._quadro_apagado
 
         snap = dict(estado)
-        tocando = snap.get("musica") is not None
+        modo = controles.config["modo"]
+        if modo != "dinamico":
+            self._retomar_giro_dinamico = False
+            self._capa_retomada_dinamica = None
+            self._cor_retomada_dinamica = None
+        if modo == "video":
+            snap.update(musica=None, capa=None, tocando=False)
+        elif modo == "spotify" and snap.get("musica") is None:
+            snap.update(snap.get("ultima_midia") or {
+                "musica": ("Pronto para tocar", "Abra o Spotify"), "capa": None,
+            })
+            snap["tocando"] = False
+        tocando = snap.get("musica") is not None and snap.get("tocando", False)
+        self._girar_fundo(agora, dt, tocando)
         reservar_final = self._aviso_proxima(snap, agora, tocando)
         uri_playlist = snap.get("playlist_uri") if tocando and snap.get("capa_playlist") is not None else None
         evento_playlist = snap.get("playlist_evento", 0)
@@ -922,7 +1132,7 @@ class Painel:
             # Mudança detectada pelo monitor Spotify: anuncia antes da capa do álbum.
             self._playlist_evento_visto = evento_playlist
             self._playlist_uri_timer = uri_playlist
-            self._mensagem_playlist_ate = agora + 7.0
+            self._mensagem_playlist_ate = agora + PLAYLIST_DURACAO
             self._inicio_mensagem_playlist = agora
             self._proxima_mensagem_playlist = agora + 60.0
         elif uri_playlist != self._playlist_uri_timer:
@@ -931,7 +1141,7 @@ class Painel:
             self._mensagem_playlist_ate = 0.0
             self._inicio_mensagem_playlist = None
         elif uri_playlist and self._proxima_mensagem_playlist is not None and agora >= self._proxima_mensagem_playlist:
-            self._mensagem_playlist_ate = agora + 7.0
+            self._mensagem_playlist_ate = agora + PLAYLIST_DURACAO
             self._inicio_mensagem_playlist = agora
             self._proxima_mensagem_playlist = agora + 60.0
         if reservar_final:
@@ -958,7 +1168,12 @@ class Painel:
             self.t_pausa = None
         elif self.estava_tocando:
             self.t_pausa = agora
-        mostrar = tocando or (self.t_pausa is not None and agora - self.t_pausa < ATRASO_OCIOSO)
+            if modo == "dinamico":
+                self._retomar_giro_dinamico = True
+                self._capa_retomada_dinamica = self._capa_girada()
+                self._cor_retomada_dinamica = self.cor
+        mostrar = (modo == "spotify" or tocando
+                   or (modo != "video" and self.t_pausa is not None and agora - self.t_pausa < ATRASO_OCIOSO))
         alvo = 1.0 if mostrar else 0.0
         if self.p < alvo:
             self.p = min(alvo, self.p + dt / FADE_ENTRA)
@@ -966,8 +1181,9 @@ class Painel:
             self.p = max(alvo, self.p - dt / FADE_SAI)
         ps = _suave(self.p)
 
-        if (self.p <= 0.0 and not tocando) or (not tocando and self.titulo is None):
+        if (self.p <= 0.0 and not tocando) or (modo != "spotify" and not tocando and self.titulo is None):
             self._zerar()
+            self._publicar_visual(False)
             self.estava_tocando = tocando
             return self._fundo(0.0)
 
@@ -984,6 +1200,7 @@ class Painel:
             self.estava_tocando = tocando
             return bg
         self.estava_tocando = tocando
+        self._publicar_visual(self.p > 0.0 and self.capa is not None)
         inicio_compor = time.perf_counter()
         base = bg.convert("RGBA")
         base.alpha_composite(ov)
@@ -1016,7 +1233,7 @@ def sessao_usb():
                 except Exception:
                     pass
 
-            brilho = brilho_para(datetime.datetime.now())
+            brilho = brilho_tela_para(datetime.datetime.now())
 
             try:
                 operations.send_brightness_command(dev, brilho)
@@ -1031,11 +1248,16 @@ def sessao_usb():
                 pass
 
         log(f"tela conectada - brilho inicial: {brilho}%")
+        estado.update(tela_conectada=True, erro_interface="")
 
         fundo_musica = ao_vivo.FundoDecoder(
             ARQUIVO_MUSICA, FPS, log=log, nome="fundo da música")
-        fundo_ocioso = ao_vivo.FundoDecoder(
-            ARQUIVO_BACKGROUND, FPS, log=log, nome="fundo ocioso")
+        if controles.interface:
+            fundo_ocioso = FundoOcioso(controles, ao_vivo.FundoDecoder,
+                                       ARQUIVO_BACKGROUND, FPS, estado, log)
+        else:
+            fundo_ocioso = ao_vivo.FundoDecoder(
+                ARQUIVO_BACKGROUND, FPS, log=log, nome="fundo ocioso")
         painel = Painel(fundo_musica, fundo_ocioso, brilho)
 
         # O pipeline dá parar.set() no próprio evento ao terminar (inclusive por erro);
@@ -1064,6 +1286,8 @@ def sessao_usb():
             except Exception:
                 pass
     finally:
+        estado["tela_conectada"] = False
+        estado["visual_disco"] = None
         try:
             usb.util.dispose_resources(dev)
         except Exception:
@@ -1075,6 +1299,7 @@ def transmitir():
         try:
             sessao_usb()
         except Exception as exc:
+            estado["erro_interface"] = str(exc)
             log(f"erro: {exc}")
         if parar.is_set():
             break
@@ -1082,121 +1307,228 @@ def transmitir():
         parar.wait(ESPERA_RECONEXAO)
 
 
-async def ler_capa(info):
+async def ler_capa(info, assinatura_atual=None):
+    fluxo = None
     try:
         if info.thumbnail is None:
-            return None, None, None
+            return None, None, None, None
         fluxo = await info.thumbnail.open_read_async()
         tamanho = fluxo.size
+        if not 0 < tamanho <= 8 * 1024 * 1024:
+            raise ValueError("miniatura vazia ou maior que 8 MB")
         buf = Buffer(tamanho)
-        await fluxo.read_async(buf, tamanho, InputStreamOptions.READ_AHEAD)
-        fluxo.close()
-        return preparar_capa(bytes(memoryview(buf)))
+        lido = await fluxo.read_async(buf, tamanho, InputStreamOptions.READ_AHEAD)
+        if lido.length != tamanho:
+            raise ValueError("miniatura incompleta; aguardando nova leitura")
+        dados = bytes(memoryview(lido)[:lido.length])
+        assinatura = hashlib.sha256(dados).digest()
+        if assinatura == assinatura_atual:
+            # A imagem não mudou: evita decodificação, nova transição e novo RGB.
+            return None, None, None, assinatura
+        capa, cor, cor_viva = preparar_capa(dados)
+        return capa, cor, cor_viva, assinatura
     except Exception as exc:
         log(f"capa: {exc}")
-        return None, None, None
+        return None, None, None, None
+    finally:
+        if fluxo is not None:
+            with contextlib.suppress(Exception):
+                fluxo.close()
 
 
 async def vigiar_spotify():
     mgr = await MediaManager.request_async()
+    loop = asyncio.get_running_loop()
     chave, capa_carregada_para, tentativas, ultimo_erro = None, None, 0, ""
     proxima_tentativa_capa = 0.0
+    assinatura_capa, capa_api_confirmada = None, False
+    conferencias_capa = []
+    pedido_id = 0
     ultima_reproducao, ultima_pos = None, 0.0
-    while not parar.is_set():
-        try:
-            sessao = None
-            sessoes = list(mgr.get_sessions())
-            
-            for s in sessoes:
-                app_id = s.source_app_user_model_id.lower()
-                if "spotify" in app_id:
-                    status = int(s.get_playback_info().playback_status)
-                    if status == 4:
-                        sessao = s
-                        break
-            
-            if sessao is None and not ESCONDER_PAUSADO:
+    em_video = False
+    revisao_capa, revisao_lida, revisao_sessoes = 0, -1, 0
+    sessao_observada, token_capa, chave_sessao = None, None, None
+
+    def marcar_capa():
+        nonlocal revisao_capa
+        revisao_capa += 1
+
+    def marcar_sessoes():
+        nonlocal revisao_sessoes
+        revisao_sessoes += 1
+        marcar_capa()
+
+    def agendar_aviso(funcao):
+        # Eventos WinRT podem chegar de outra thread; só publicam um aviso leve.
+        with contextlib.suppress(RuntimeError):
+            loop.call_soon_threadsafe(funcao)
+
+    def observar_sessao(sessao):
+        nonlocal sessao_observada, token_capa, chave_sessao
+        nova_chave = (sessao.source_app_user_model_id, revisao_sessoes) if sessao else None
+        if nova_chave == chave_sessao:
+            return
+        if sessao_observada is not None and token_capa is not None:
+            with contextlib.suppress(Exception):
+                sessao_observada.remove_media_properties_changed(token_capa)
+        sessao_observada, token_capa, chave_sessao = sessao, None, nova_chave
+        marcar_capa()
+        if sessao is not None:
+            try:
+                token_capa = sessao.add_media_properties_changed(
+                    lambda _s, _e: agendar_aviso(marcar_capa))
+            except Exception as exc:
+                log(f"capa: avisos do Windows indisponíveis ({exc}); mantendo as releituras iniciais e a API")
+
+    token_sessoes = None
+    try:
+        token_sessoes = mgr.add_sessions_changed(lambda _m, _e: agendar_aviso(marcar_sessoes))
+    except Exception as exc:
+        log(f"capa: aviso de sessões indisponível ({exc})")
+    try:
+        while not parar.is_set():
+            if controles.config["modo"] == "video":
+                if not em_video:
+                    observar_sessao(None)
+                    estado.update(musica=None, capa=None, tocando=False, midia_pronta=True,
+                                  proxima_faixa=None, pedido_capa_album=None, capa_album_api=None)
+                    chave = capa_carregada_para = ultima_reproducao = None
+                    tentativas, proxima_tentativa_capa = 0, 0.0
+                    em_video = True
+                await asyncio.sleep(0.25)
+                continue
+            em_video = False
+            try:
+                sessao = None
+                sessoes = list(mgr.get_sessions())
+
                 for s in sessoes:
-                    if "spotify" in s.source_app_user_model_id.lower():
-                        sessao = s
-                        break
+                    app_id = s.source_app_user_model_id.lower()
+                    if "spotify" in app_id:
+                        status = int(s.get_playback_info().playback_status)
+                        if status == 4:
+                            sessao = s
+                            break
 
-            tocando = False
-            if sessao is not None:
-                tocando = int(sessao.get_playback_info().playback_status) == 4
+                if sessao is None and (not ESCONDER_PAUSADO or controles.config["modo"] == "spotify"):
+                    for s in sessoes:
+                        if "spotify" in s.source_app_user_model_id.lower():
+                            sessao = s
+                            break
 
-            if sessao is None or (ESCONDER_PAUSADO and not tocando):
-                estado["musica"] = None
-                estado["capa"] = None
-                estado["cor_capa"] = (30, 215, 96, 255)
-                estado["cor_viva"] = (30, 215, 96, 255)
-                estado["tocando"] = False
-                estado["midia_pronta"] = True
-                chave = None
-                capa_carregada_para = None
-                tentativas = 0
-                proxima_tentativa_capa = 0.0
-            else:
-                info = await sessao.try_get_media_properties_async()
-                nova = (info.title, info.artist)
-                
-                if nova != chave:
-                    chave = nova
-                    capa_carregada_para = None
-                    tentativas = 0
-                    proxima_tentativa_capa = 0.0
+                observar_sessao(sessao)
+                tocando = sessao is not None and int(sessao.get_playback_info().playback_status) == 4
 
-                # A miniatura pode chegar depois dos metadados da faixa. Tenta
-                # novamente com intervalo, sem repetir o trabalho a cada polling.
-                agora_capa = time.monotonic()
-                precisa_carregar_capa = (
-                    capa_carregada_para != nova
-                    and agora_capa >= proxima_tentativa_capa
-                )
-                if precisa_carregar_capa:
-                    tentativas += 1
-                    await asyncio.sleep(0.08)
-                    capa_img, cor_capa, cor_viva = await ler_capa(info)
-                    
-                    if capa_img is not None:
-                        estado["capa"] = capa_img
-                        estado["cor_capa"] = cor_capa
-                        estado["cor_viva"] = cor_viva
+                if sessao is None or (ESCONDER_PAUSADO and not tocando and controles.config["modo"] != "spotify"):
+                    estado.update(musica=None, capa=None, cor_capa=(30, 215, 96, 255),
+                                  cor_viva=(30, 215, 96, 255), tocando=False, midia_pronta=True,
+                                  pedido_capa_album=None, capa_album_api=None)
+                    chave = capa_carregada_para = None
+                    tentativas, proxima_tentativa_capa = 0, 0.0
+                else:
+                    info = await sessao.try_get_media_properties_async()
+                    nova = (info.title, info.artist)
+                    identidade_capa = (*nova, info.album_title)
+
+                    if identidade_capa != chave:
+                        chave = identidade_capa
+                        capa_carregada_para, assinatura_capa = None, None
+                        capa_api_confirmada = False
+                        tentativas, proxima_tentativa_capa = 0, 0.0
+                        pedido_id += 1
+                        estado.update(pedido_capa_album={"id": pedido_id, "musica": nova,
+                                                       "album": info.album_title},
+                                      capa_album_api=None)
+                        # Alguns players avisam o título antes da imagem definitiva.
+                        inicio_capa = time.monotonic()
+                        conferencias_capa = [inicio_capa + atraso for atraso in (1.0, 3.0, 7.0)]
+
+                    recuperada = estado.get("capa_album_api")
+                    if (recuperada is not None and recuperada["pedido_id"] == pedido_id
+                            and recuperada["musica"] == nova and not capa_api_confirmada):
+                        anterior = estado.get("capa") if capa_carregada_para == nova else None
+                        if not capas_equivalentes(anterior, recuperada["capa"]):
+                            estado.update(capa=recuperada["capa"], cor_capa=recuperada["cor_capa"],
+                                          cor_viva=recuperada["cor_viva"])
+                            log(f"capa: recuperada pela API do Spotify ({nova[0]})")
                         capa_carregada_para = nova
-                    else:
-                        proxima_tentativa_capa = time.monotonic() + 1.0
+                        # Não volte à miniatura temporária depois da confirmação da API.
+                        capa_api_confirmada = True
+                        conferencias_capa = []
 
-                tl = sessao.get_timeline_properties()
-                dur = (tl.end_time - tl.start_time).total_seconds()
-                pos = (tl.position - tl.start_time).total_seconds()
-                if tocando:
-                    lu = tl.last_updated_time
-                    if lu.tzinfo is None:
-                        lu = lu.replace(tzinfo=datetime.timezone.utc)
-                    agora = datetime.datetime.now(datetime.timezone.utc)
-                    extra = (agora - lu).total_seconds()
-                    if 0 <= extra <= dur:
-                        pos += extra
-                
-                # Pausar mantém o identificador; trocar/voltar na faixa invalida a fila.
-                mudou_reproducao = nova != ultima_reproducao or pos < ultima_pos - 2.0
-                reproducao_id = estado["reproducao_id"] + int(mudou_reproducao)
-                ultima_reproducao, ultima_pos = nova, pos
-                estado.update(
-                    musica=nova, pos=pos, dur=dur,
-                    t_poll=time.monotonic(), tocando=tocando,
-                    reproducao_id=reproducao_id,
-                    proxima_faixa=None if mudou_reproducao else estado.get("proxima_faixa"),
-                )
-                # Só libera o OpenRGB após tentar obter a capa que define a cor inicial.
-                if estado.get("capa") is not None or tentativas >= 2:
-                    estado["midia_pronta"] = True
-        except Exception as exc:
-            if str(exc) != ultimo_erro:
-                ultimo_erro = str(exc)
-                log(f"spotify/midia: {exc}")
+                    agora_capa = time.monotonic()
+                    conferencia_pendente = bool(conferencias_capa and agora_capa >= conferencias_capa[0])
+                    precisa_carregar_capa = (not capa_api_confirmada
+                        and agora_capa >= proxima_tentativa_capa
+                        and (capa_carregada_para != nova or revisao_capa != revisao_lida
+                             or conferencia_pendente))
+                    if precisa_carregar_capa:
+                        tentativas += 1
+                        await asyncio.sleep(0.08)
+                        # Releia após esperar: o objeto anterior pode conter a miniatura antiga.
+                        info = await sessao.try_get_media_properties_async()
+                        if (info.title, info.artist, info.album_title) != identidade_capa:
+                            continue
+                        revisao_lida = revisao_capa
+                        while conferencias_capa and conferencias_capa[0] <= agora_capa:
+                            conferencias_capa.pop(0)
+                        capa_img, cor_capa, cor_viva, assinatura = await ler_capa(info, assinatura_capa)
+                        confirmacao = await sessao.try_get_media_properties_async()
+                        if (confirmacao.title, confirmacao.artist, confirmacao.album_title) != identidade_capa:
+                            continue
+                        if assinatura is not None:
+                            if capa_img is not None:
+                                anterior = estado.get("capa") if capa_carregada_para == nova else None
+                                if not capas_equivalentes(anterior, capa_img):
+                                    estado.update(capa=capa_img, cor_capa=cor_capa, cor_viva=cor_viva)
+                                    if anterior is not None:
+                                        log(f"capa: imagem atualizada pelo Windows ({nova[0]})")
+                            assinatura_capa = assinatura
+                            capa_carregada_para = nova
+                            proxima_tentativa_capa = time.monotonic() + 0.5
+                        else:
+                            proxima_tentativa_capa = time.monotonic() + 1.0
 
-        await asyncio.sleep(0.15)
+                    tl = sessao.get_timeline_properties()
+                    dur = (tl.end_time - tl.start_time).total_seconds()
+                    pos = (tl.position - tl.start_time).total_seconds()
+                    if tocando:
+                        lu = tl.last_updated_time
+                        if lu.tzinfo is None:
+                            lu = lu.replace(tzinfo=datetime.timezone.utc)
+                        agora = datetime.datetime.now(datetime.timezone.utc)
+                        extra = (agora - lu).total_seconds()
+                        if 0 <= extra <= dur:
+                            pos += extra
+
+                    # Pausar mantém o identificador; trocar/voltar na faixa invalida a fila.
+                    mudou_reproducao = nova != ultima_reproducao or pos < ultima_pos - 2.0
+                    reproducao_id = estado["reproducao_id"] + int(mudou_reproducao)
+                    ultima_reproducao, ultima_pos = nova, pos
+                    estado.update(
+                        musica=nova, pos=pos, dur=dur,
+                        t_poll=time.monotonic(), tocando=tocando,
+                        reproducao_id=reproducao_id,
+                        proxima_faixa=None if mudou_reproducao else estado.get("proxima_faixa"),
+                    )
+                    if capa_carregada_para == nova and estado.get("capa") is not None:
+                        estado["ultima_midia"] = {
+                            k: estado[k] for k in ("musica", "capa", "cor_capa", "cor_viva", "pos", "dur", "t_poll")
+                        }
+                    # Só libera o OpenRGB após tentar obter a capa que define a cor inicial.
+                    if estado.get("capa") is not None or tentativas >= 2:
+                        estado["midia_pronta"] = True
+            except Exception as exc:
+                if str(exc) != ultimo_erro:
+                    ultimo_erro = str(exc)
+                    log(f"spotify/midia: {exc}")
+
+            await asyncio.sleep(0.15)
+    finally:
+        observar_sessao(None)
+        if token_sessoes is not None:
+            with contextlib.suppress(Exception):
+                mgr.remove_sessions_changed(token_sessoes)
 
 
 async def main_async():
@@ -1204,9 +1536,12 @@ async def main_async():
 
 
 def main():
+    if "--interface" in sys.argv:
+        iniciar_ponte(controles, estado, parar, log)
     watcher_playlist = SpotifyPlaylistWatcher(
         atualizar_capa_playlist, log,
-        ler_estado=lambda: dict(estado), ao_proxima=atualizar_proxima_faixa)
+        ler_estado=lambda: dict(estado), ao_proxima=atualizar_proxima_faixa,
+        ao_capa_album=atualizar_capa_album)
     watcher_playlist.iniciar()
     try:
         import leds_openrgb
@@ -1231,4 +1566,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        reserva = reservar_execucao()
+    except RuntimeError as exc:
+        log(str(exc))
+        sys.exit(1)
+    try:
+        main()
+    finally:
+        liberar_execucao(reserva)

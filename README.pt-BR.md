@@ -58,6 +58,7 @@ https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
 
 ## :star2: Recursos
 
+- Interface gráfica com seletor animado de modos, brilho manual/automático e botão para apagar a tela.
 - Animações transmitidas à tela com taxa alvo de **60 quadros por segundo**.
 - Capa do álbum, informações da faixa e arco de progresso da música.
 - Transições animadas entre músicas e capas.
@@ -75,12 +76,48 @@ https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `tela_completa.py` | Coordena a tela, a mídia do Windows, o volume, o Spotify e o OpenRGB. É o ponto de entrada. |
+| `interface.py` / `iniciar_interface.pyw` | Janela de controle; abra o `.pyw` com dois cliques ou execute `python interface.py`. |
+| `controle_interface.py` | Guarda as preferências locais e conecta a janela ao processo da tela. |
+| `fundo_usuario.py` | Prepara o vídeo ocioso escolhido no app e troca o decoder durante a exibição. |
 | `ao_vivo.py` | Compõe os elementos visuais e codifica o fluxo H.264 em tempo real com FFmpeg. |
 | `animacao_capa.py` | Controla as transições das capas. |
 | `spotify_playlist.py` | Consulta o contexto de reprodução e os dados da playlist pela API do Spotify. |
 | `leds_openrgb.py` | Controla as zonas RGB selecionadas e aplica as cores do álbum ou o perfil de ociosidade. |
 
-O Spotify é consultado a cada cinco segundos. Quando o contexto muda, o nome e a arte da playlist são atualizados; a tela mostra a mensagem e a capa por alguns segundos, e repete a exibição periodicamente. Os LEDs continuam seguindo a cor da capa do álbum.
+O Spotify é consultado a cada cinco segundos. Quando o contexto muda, o nome e a arte da playlist são atualizados; a tela mostra a mensagem e a capa por cinco segundos, e repete a exibição periodicamente. Os LEDs continuam seguindo a cor da capa do álbum.
+
+A capa do álbum normalmente vem da mídia do Windows. O script recebe avisos de atualização da imagem na mesma faixa e faz algumas releituras após a troca de música, permitindo substituir uma miniatura temporária sem avançar a faixa. Com a API do Spotify configurada, a consulta de reprodução já existente também confirma a imagem do álbum: título, artista e os dados de álbum disponíveis precisam coincidir antes de aceitar o resultado. As imagens são baixadas uma vez por solicitação e reutilizadas em memória; imagens visualmente equivalentes mantêm a capa e as cores RGB existentes. Atualizações e recuperações aparecem em `tela.log`. Isso não grava vídeos nem salva capas em disco.
+
+### Interface gráfica
+
+Encerre qualquer execução anterior de `tela_completa.py` com **Ctrl+C**. Abra `iniciar_interface.pyw` com dois cliques ou execute:
+
+```powershell
+python interface.py
+```
+
+Escolha um modo e clique em **Iniciar exibição**. A janela fica disponível para ajustar os controles durante a reprodução.
+
+| Modo | Com música | Durante a pausa |
+| --- | --- | --- |
+| Dinâmico | Vinil, capa, informações e animações do Spotify. | O disco e a capa desaceleram suavemente como no modo Só Spotify antes da transição para o vídeo de fundo e perfil RGB ocioso. Ao retomar, a capa usa o mesmo giro da troca de música. |
+| Só Spotify | A mesma experiência com o vinil. | O vinil desacelera; o glow e o preenchimento do arco desaparecem, e a capa encolhe suavemente até 70%. Ao retomar, a capa volta; o glow atinge a intensidade máxima quando ela chega ao tamanho completo, enquanto o arco cresce de zero até o progresso atual. Os LEDs mantêm a cor do álbum. |
+| Só vídeo | Apenas o vídeo de fundo. | Vídeo de fundo e perfil RGB ocioso. |
+
+- O slider mostra o valor durante o arraste e aplica o brilho ao soltar, evitando uma sequência de atualizações na controladora RGB.
+- **Automático** mantém a programação de brilho por horário. Arrastar o slider ativa o ajuste manual.
+- **Desligar tela** apaga o backlight e mostra um quadro preto; os LEDs continuam seguindo o modo selecionado. O USB permanece conectado.
+- As preferências ficam em `%LOCALAPPDATA%\TuringScreen\interface.json`.
+- Fechar a janela encerra a execução que ela iniciou. A janela impede uma segunda execução simultânea.
+- A base da interface usa grafite e prata suave. As cores dos controles, dos ícones e do glow acompanham a capa do álbum, com transição suave. Botões, modos e slider têm resposta animada ao mouse.
+- O ícone do aplicativo é um toca-discos prateado com centro azul acinzentado, disponível em PNG e ICO em `assets/icons` e usado na janela e no cabeçalho.
+- O vinil externo e a capinha da interface acompanham o movimento da tela, com alvo de 60 FPS e agendamento pelo relógio. A capinha também acompanha o encolhimento durante a pausa.
+- **Aparência** permite ligar/desligar o acrílico do Windows 11 e ajustar a opacidade do fundo. Menor opacidade revela mais das janelas atrás do app. Textos e controles permanecem opacos. O Windows compõe o blur; esse ajuste não envia comandos à tela ou aos LEDs. Se o acrílico ajustável estiver indisponível, o painel informa o material controlado pelo Windows ou usa o fundo sólido.
+- **Vídeo de fundo → Escolher vídeo** permite importar o fundo ocioso. O app faz a preparação em segundo plano, mostra o progresso e permite cancelar. **Restaurar padrão** volta ao `video_fundo.mp4` do projeto.
+- A interface usa Tkinter e Pillow, sem navegador embutido. As máscaras do glow são preparadas na abertura; a capa parada é reutilizada. A sincronização usa números enviados pelo próprio script, sem consultas extras ao Spotify.
+- As fontes **Fraunces** e **DM Sans**, do Google Fonts, estão incluídas em `assets/fonts`, com suas licenças SIL Open Font License. A janela funciona sem baixar fontes na inicialização.
+
+A execução direta com `python tela_completa.py` continua disponível, com o comportamento dinâmico e o brilho por horário originais.
 
 ## :computer: Requisitos
 
@@ -159,6 +196,12 @@ Os conversores produzem vídeos quadrados de 480 × 480 a 30 FPS:
 - `converter.bat` gera `video_tela.mp4` a partir de `entrada.mp4`. Na versão atual, o nome de origem está fixado no próprio arquivo; coloque o vídeo com esse nome na pasta do projeto.
 - `converter_fundo.bat` pede o caminho do vídeo de origem e gera `video_fundo.mp4`.
 
+Pela interface, use **Vídeo de fundo → Escolher vídeo**. A importação aplica a preparação do conversor de fundo: 480 × 480, recorte central, 30 FPS, H.264 sem áudio e os ajustes de saturação/contraste existentes. Requer FFmpeg e FFprobe no `PATH`, com o codificador `libx264`.
+
+A conversão usa prioridade reduzida no Windows, duas threads de codificação e uma thread de filtros. Os arquivos prontos ficam em `%LOCALAPPDATA%\TuringScreen\fundos`; o vídeo de origem, o fundo padrão e as importações anteriores são preservados. A preferência fica salva para a próxima abertura.
+
+Durante a exibição, o script abre o novo fundo em uma thread separada e confirma que consegue ler o primeiro quadro antes de trocar o decoder ocioso. O fundo novo aparece na próxima leitura do vídeo ocioso, sem reiniciar o script. Em **Só Spotify**, o vinil continua sendo o fundo desse modo. Se a importação falhar ou for cancelada, o fundo anterior permanece selecionado.
+
 Os arquivos `.h264` presentes no repositório são mantidos junto dos recursos de vídeo. Não os remova nem os ignore sem confirmar que o fluxo atual não depende deles.
 
 ## :rocket: Execução
@@ -190,6 +233,7 @@ Faça uma cópia antes de alterar os parâmetros de desempenho ou de gravação 
 | FFmpeg não é encontrado | Instalação do FFmpeg e pasta `bin` no `PATH`; abra um novo terminal depois de alterar o PATH. |
 | `h264_nvenc` não aparece | Compilação do FFmpeg com NVENC e driver NVIDIA. |
 | A playlist não aparece | Client ID, Redirect URI, conexão com a internet e autorização no navegador. Para autorizar de novo, remova o token local. |
+| Aparece o logo do Spotify no lugar da capa | O Windows pode ter fornecido uma miniatura temporária do player. Os avisos de atualização e a API configurada recuperam a capa automaticamente; procure `capa: imagem atualizada pelo Windows` ou `capa: recuperada pela API do Spotify` em `tela.log`. A recuperação pela API depende de conexão e metadados coincidentes. |
 | OpenRGB não conecta | Servidor SDK ativo em `127.0.0.1:6742` e ausência de outro processo controlando as mesmas zonas. |
 | LEDs mostram cores incorretas | Pare o script, feche outros controladores RGB, restaure o perfil no OpenRGB e confira as mensagens em `tela.log`. |
 | O vídeo engasga | Confira uso de GPU/CPU, suporte NVENC e outros programas que codifiquem vídeo; a conexão USB e a tela também influenciam. |

@@ -58,6 +58,7 @@ https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
 
 ## :star2: Features
 
+- Desktop controls with animated mode selection, manual/automatic brightness, and screen blanking.
 - Animations streamed to the display at a target of **60 frames per second**.
 - Album art, track information, and a music progress arc.
 - Animated transitions between tracks and album covers.
@@ -75,12 +76,45 @@ https://github.com/user-attachments/assets/f876053e-42a8-4e0f-b7f9-6a048da14437
 | File | Responsibility |
 | --- | --- |
 | `tela_completa.py` | Coordinates the display, Windows media, volume, Spotify, and OpenRGB. This is the entry point. |
+| `fundo_usuario.py` | Prepares an idle video selected in the app and swaps its decoder during playback. |
 | `ao_vivo.py` | Composes the visuals and encodes the live H.264 stream with FFmpeg. |
 | `animacao_capa.py` | Controls album-cover transitions. |
 | `spotify_playlist.py` | Retrieves playback context and playlist data through the Spotify API. |
 | `leds_openrgb.py` | Controls the selected RGB zones and applies album colors or the idle profile. |
 
-Spotify is queried every five seconds. When the playback context changes, the playlist name and artwork are updated; the screen shows the message and cover for a few seconds, then repeats the display periodically. The LEDs continue to follow the album-cover color.
+Spotify is queried every five seconds. When the playback context changes, the playlist name and artwork are updated; the screen shows the message and cover for five seconds, then repeats the display periodically. The LEDs continue to follow the album-cover color.
+
+Album artwork normally comes from Windows media. The script listens for artwork updates on the same track and briefly rechecks after a track change, so a temporary player thumbnail can be replaced without skipping the song. With the Spotify API configured, the existing playback poll also confirms the album image: title, artist and available album metadata must match before a result is accepted. Images are downloaded once per request and cached in memory; visually equivalent images keep the existing artwork and RGB colors. Changed or recovered artwork is recorded in `tela.log`. This does not record videos or save cover images to disk.
+
+### Desktop interface
+
+Stop any previous `tela_completa.py` instance with **Ctrl+C**. Double-click `iniciar_interface.pyw`, or run:
+
+```powershell
+python interface.py
+```
+
+Choose a mode and click **Iniciar exibição** (Start display). The controls are in Portuguese.
+
+| Mode | While playing | While paused |
+| --- | --- | --- |
+| Dinâmico (Dynamic) | Spotify vinyl, artwork, metadata, and animations. | The record and artwork decelerate smoothly as in Spotify-only mode before transitioning to the idle video and idle RGB profile. Resume uses the same artwork flip as a track change. |
+| Só Spotify (Spotify only) | The same vinyl experience. | Decelerate the record, fade the glow and filled progress arc, and smoothly shrink the artwork to 70%. Resume restores the artwork; the glow reaches full intensity when the artwork reaches full size, while the arc fills from zero to the current playback position. Keep the album's RGB color. |
+| Só vídeo (Video only) | Idle background video. | Idle background video and idle RGB profile. |
+
+Brightness is applied when you release the slider, avoiding repeated RGB updates while dragging. **Automático** uses the existing time-based brightness schedule. **Desligar tela** turns off the backlight and sends a black frame; the LEDs continue following the selected mode. Closing the window stops the process it started.
+
+The interface uses a graphite and soft silver base. Controls, icons, and glow smoothly follow the album's color. Buttons, mode selection and the slider have animated hover feedback. Both the outer record and the artwork follow the display's motion, with a 60 FPS target and animation timing based on elapsed time. Stationary images and precomputed glow masks are reused. Motion comes from the script's existing state, with no additional Spotify API requests.
+
+The app icon is a silver turntable with a muted slate blue center, supplied as PNG and ICO in `assets/icons` and used in the window and header.
+
+Open **Aparência** (Appearance) to toggle Windows 11 acrylic and adjust background opacity. Lower opacity reveals more of the windows behind the app; text and controls stay opaque. Windows performs the blur, and appearance settings do not send commands to the screen or RGB controller. If adjustable acrylic is unavailable, the panel reports the Windows-managed material or falls back to a solid background.
+
+Open **Vídeo de fundo → Escolher vídeo** (Background video → Choose video) to import an idle background. The app prepares it in the background with progress and cancellation. **Restaurar padrão** restores the project's `video_fundo.mp4`.
+
+Preferences are stored locally in `%LOCALAPPDATA%\TuringScreen\interface.json`. The interface uses Tkinter and Pillow, with no embedded browser. Fraunces and DM Sans from Google Fonts are bundled in `assets/fonts` with their SIL Open Font License files.
+
+Direct execution with `python tela_completa.py` retains the original dynamic display and time-based brightness behavior.
 
 ## :computer: Requirements
 
@@ -159,6 +193,12 @@ The converters produce 480 × 480 square videos at 30 FPS:
 - `converter.bat` creates `video_tela.mp4` from `entrada.mp4`. The source filename is currently fixed in the batch file; place the video under that name in the project folder.
 - `converter_fundo.bat` asks for the source video path and creates `video_fundo.mp4`.
 
+The desktop interface can import the idle video directly. It uses the same preparation as the background converter: 480 × 480, a centered crop, 30 FPS, silent H.264, and the existing saturation/contrast adjustments. FFmpeg and FFprobe must be in `PATH`, with the `libx264` encoder available.
+
+Conversion runs below normal priority on Windows, with two encoding threads and one filter thread. Prepared files are stored in `%LOCALAPPDATA%\TuringScreen\fundos`. The source video, default background, and previous imports are preserved, and the selection is saved for the next launch.
+
+While the display is running, a separate thread opens the new background and reads its first frame before the idle decoder is swapped. The next idle-video read uses the new background without restarting the script. **Só Spotify** keeps its vinyl background. Failed or cancelled imports keep the previous selection.
+
 The `.h264` files in the repository are kept alongside the video assets. Do not remove or ignore them without first confirming that the current workflow does not depend on them.
 
 ## :rocket: Running the project
@@ -190,6 +230,7 @@ Make a backup before changing performance or RGB-write settings. The controller 
 | FFmpeg is not found | FFmpeg installation and its `bin` folder on `PATH`; open a new terminal after changing `PATH`. |
 | `h264_nvenc` is missing | An FFmpeg build with NVENC support and the NVIDIA driver. |
 | The playlist does not appear | Client ID, Redirect URI, internet connection, and browser authorization. To authorize again, remove the local token. |
+| A Spotify logo appears instead of album artwork | Windows may have supplied a temporary player thumbnail. Artwork updates and the configured Spotify API recover the cover automatically; look for `capa: imagem atualizada pelo Windows` or `capa: recuperada pela API do Spotify` in `tela.log`. API recovery requires a connection and matching track metadata. |
 | OpenRGB will not connect | SDK server running at `127.0.0.1:6742` and no other process controlling the same zones. |
 | LEDs show incorrect colors | Stop the script, close other RGB controllers, restore the profile in OpenRGB, and check `tela.log`. |
 | Video stutters | Check GPU/CPU usage, NVENC support, and other video-encoding programs; the USB connection and display also matter. |

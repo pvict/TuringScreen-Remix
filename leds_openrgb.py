@@ -206,7 +206,11 @@ def _zonas(devs):
 def cores_alvo(estado, brilho, zonas, perfil):
     """Cores desejadas por LED de cada zona, chave = 'dispositivo|zona'."""
     fator = max(0, min(100, brilho)) / 100
-    tocando = estado["musica"] is not None
+    modo = estado.get("modo_exibicao", "dinamico")
+    midia = estado
+    if modo == "spotify" and estado.get("musica") is None:
+        midia = estado.get("ultima_midia") or estado
+    tocando = modo != "video" and midia.get("musica") is not None
     
     # Se não está tocando, evita completamente o processamento da capa e usa a cor padrão/ociosa de forma limpa
     if not tocando:
@@ -219,7 +223,7 @@ def cores_alvo(estado, brilho, zonas, perfil):
             alvo[chave] = [_escalar(c, fator) for c in base]
         return alvo
 
-    cor = estado.get("cor_viva") or estado["cor_capa"]
+    cor = midia.get("cor_viva") or midia["cor_capa"]
     album = realcar(cor)
     alvo = {}
     for chave, _d, z in zonas:

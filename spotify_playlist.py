@@ -65,13 +65,17 @@ def _ler_json_http(url, dados=None, cabecalhos=None, timeout=10):
 
 
 class SpotifyPlaylistWatcher:
-    """Consulta o contexto da reprodução e baixa a imagem só quando a playlist muda."""
+    """Consulta reprodução, playlist e fila, reutilizando as capas baixadas."""
 
-    def __init__(self, ao_atualizar, log, ler_estado=None, ao_proxima=None):
+    def __init__(self, ao_atualizar, log, ler_estado=None, ao_proxima=None, ao_capa_album=None):
         self.ao_atualizar = ao_atualizar
         self.log = log
         self.ler_estado = ler_estado
         self.ao_proxima = ao_proxima
+        self.ao_capa_album = ao_capa_album
+        self._album_confirmado_para = None
+        self._cache_capas_album = {}
+        self._ultimo_erro_album = None
         self._fila_consultada_para = None
         self._fila_validacao_log_id = None
         self._cache_capas_fila = {}
@@ -108,8 +112,15 @@ class SpotifyPlaylistWatcher:
 
     def _executar(self):
         while not self.parar.is_set():
+            if self.ler_estado is not None and self.ler_estado().get("modo_exibicao") == "video":
+                # Só vídeo não precisa de OAuth, polling da API ou download de capas.
+                self._ultima_uri = None
+                self._notificar(None, None, None)
+                self.parar.wait(INTERVALO_POLL)
+                continue
             espera = INTERVALO_POLL
             etapa = "consulta da reprodução atual"
+            atual = None
             try:
                 token = self._obter_token()
                 atual = self._api("https://api.spotify.com/v1/me/player/currently-playing", token)
@@ -168,7 +179,69 @@ class SpotifyPlaylistWatcher:
                     self.log(f"Spotify playlist: {mensagem}")
                     self._ultimo_erro = mensagem
                 espera = 60.0 if self.token is None else 15.0
+            finally:
+                # Mantém a prioridade da playlist/fila. Uma falha na playlist não
+                # impede recuperar a capa com a resposta de reprodução já obtida.
+                if atual is not None:
+                    self._confirmar_capa_album(atual)
             self.parar.wait(espera)
+
+    def _confirmar_capa_album(self, atual):
+        """Confere a capa uma vez por faixa, sem bloquear a tela ou a mídia do Windows."""
+        if self.ler_estado is None or self.ao_capa_album is None:
+            return
+        snap = self.ler_estado()
+        pedido = snap.get("pedido_capa_album")
+        if not pedido or snap.get("musica") != pedido["musica"]:
+            return
+        musica = pedido["musica"]
+        item = (atual or {}).get("item") or {}
+        artistas = [(a.get("name") or "").casefold() for a in item.get("artists", [])]
+        artista_local = (musica[1] or "").casefold()
+        album_local = (pedido.get("album") or "").strip().casefold()
+        album_api = ((item.get("album") or {}).get("name") or "").strip().casefold()
+        # Não aceite a imagem de uma faixa anterior se a Web API estiver atrasada.
+        if (item.get("type") != "track" or not item.get("uri")
+                or (item.get("name") or "").casefold() != (musica[0] or "").casefold()
+                or (artista_local and artista_local not in artistas
+                    and artista_local != ", ".join(artistas))
+                or (album_local and album_api != album_local)):
+            return
+        imagens = [img for img in (item.get("album") or {}).get("images", [])
+                   if img.get("url")]
+        if not imagens:
+            return
+        imagem = min(imagens, key=lambda img: abs((img.get("width") or 300) - 300))
+        url = imagem["url"]
+        chave = (pedido["id"], item["uri"], url)
+        if chave == self._album_confirmado_para:
+            return
+        try:
+            dados = self._cache_capas_album.get(url)
+            if dados is None:
+                dados = self._baixar(url, timeout=4)
+                if not dados:
+                    raise ValueError("imagem de álbum vazia")
+                if len(self._cache_capas_album) >= 4:
+                    self._cache_capas_album.pop(next(iter(self._cache_capas_album)))
+                self._cache_capas_album[url] = dados
+            agora = self.ler_estado()
+            pedido_atual = agora.get("pedido_capa_album")
+            if (self.parar.is_set() or not pedido_atual
+                    or pedido_atual["id"] != pedido["id"]
+                    or agora.get("musica") != musica):
+                return
+            if self.ao_capa_album(pedido["id"], musica, item["uri"], dados):
+                self._album_confirmado_para = chave
+                self._ultimo_erro_album = None
+            else:
+                # Uma resposta inválida não deve ficar presa no cache.
+                self._cache_capas_album.pop(url, None)
+        except Exception as exc:
+            mensagem = f"HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else str(exc)
+            if mensagem != self._ultimo_erro_album:
+                self.log(f"Spotify capa: recuperação indisponível ({mensagem}); mantendo a mídia do Windows.")
+                self._ultimo_erro_album = mensagem
 
     def _consultar_proxima(self, atual, token):
         """Uma consulta por reprodução, perto do final; falhas não afetam a playlist."""

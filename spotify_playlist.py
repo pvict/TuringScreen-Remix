@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 REDIRECT_URI = "http://127.0.0.1:8765/callback"
-ESCOPO = "user-read-currently-playing playlist-read-private playlist-read-collaborative"
+ESCOPO = "user-read-currently-playing user-read-playback-state playlist-read-private playlist-read-collaborative"
 ARQUIVO_CLIENT_ID = Path(__file__).with_name("spotify_client_id.txt")
 ARQUIVO_TOKEN = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "TuringScreen" / "spotify_token.bin"
 INTERVALO_POLL = 5.0
@@ -67,9 +67,15 @@ def _ler_json_http(url, dados=None, cabecalhos=None, timeout=10):
 class SpotifyPlaylistWatcher:
     """Consulta o contexto da reprodução e baixa a imagem só quando a playlist muda."""
 
-    def __init__(self, ao_atualizar, log):
+    def __init__(self, ao_atualizar, log, ler_estado=None, ao_proxima=None):
         self.ao_atualizar = ao_atualizar
         self.log = log
+        self.ler_estado = ler_estado
+        self.ao_proxima = ao_proxima
+        self._fila_consultada_para = None
+        self._fila_validacao_log_id = None
+        self._cache_capas_fila = {}
+        self._autorizacao_ampliada_tentada = False
         self.parar = threading.Event()
         self.thread = None
         self.client_id = ""
@@ -87,6 +93,8 @@ class SpotifyPlaylistWatcher:
             self.log("Spotify playlist: Client ID não configurado; mantendo capa da faixa.")
             return
         self.thread = threading.Thread(target=self._executar, name="SpotifyPlaylist", daemon=True)
+        if self.ao_proxima is not None:
+            self.log("Spotify a seguir: ativo; busca a fila perto dos últimos 32s da faixa.")
         self.thread.start()
 
     def fechar(self):
@@ -148,6 +156,8 @@ class SpotifyPlaylistWatcher:
                     self._notificar(uri, nome, imagem)
                     self._ultima_uri = uri
                     self.log(f"Spotify playlist: contexto atualizado ({nome}).")
+                # A fila usa o polling existente, depois de atualizar a playlist.
+                self._consultar_proxima(atual, token)
                 self._ultimo_erro = None
             except Exception as exc:
                 if isinstance(exc, urllib.error.HTTPError):
@@ -160,6 +170,76 @@ class SpotifyPlaylistWatcher:
                 espera = 60.0 if self.token is None else 15.0
             self.parar.wait(espera)
 
+    def _consultar_proxima(self, atual, token):
+        """Uma consulta por reprodução, perto do final; falhas não afetam a playlist."""
+        if self.ler_estado is None or self.ao_proxima is None:
+            return
+        snap = self.ler_estado()
+        musica = snap.get("musica")
+        dur = snap.get("dur", 0.0)
+        if not musica or not snap.get("tocando") or dur <= 0:
+            return
+        pos = snap.get("pos", 0.0) + max(0.0, time.monotonic() - snap.get("t_poll", 0.0))
+        restante = dur - pos
+        reproducao = snap.get("reproducao_id", 0)
+        if reproducao == self._fila_consultada_para:
+            return
+
+        item = (atual or {}).get("item") or {}
+        if item.get("duration_ms", 0) > 0 and (atual or {}).get("progress_ms") is not None:
+            restante = (item["duration_ms"] - atual["progress_ms"]) / 1000.0
+        if not 15.0 < restante <= 32.0:
+            return
+        artistas = [a.get("name", "").casefold() for a in item.get("artists", [])]
+        artista_local = (musica[1] or "").casefold()
+        # A Web API pode estar alguns segundos atrás de uma troca manual.
+        if (not (atual or {}).get("is_playing")
+                or item.get("type") != "track"
+                or (item.get("name") or "").casefold() != (musica[0] or "").casefold()
+                or (artista_local and artista_local not in artistas
+                    and artista_local != ", ".join(artistas))):
+            if self._fila_validacao_log_id != reproducao:
+                self._fila_validacao_log_id = reproducao
+                self.log("Spotify a seguir: aguardando a faixa da API coincidir com a mídia do Windows.")
+            return
+        self._fila_consultada_para = reproducao
+        try:
+            if (atual or {}).get("repeat_state") == "track":
+                self.log("Spotify a seguir: repetição da mesma faixa ativa; sem prévia de outra música.")
+                return
+            self.log(f"Spotify a seguir: consultando fila ({musica[0]}; faltam {restante:.1f}s).")
+            fila = self._api("https://api.spotify.com/v1/me/player/queue", token, timeout=4)
+            tocando_fila = (fila or {}).get("currently_playing") or {}
+            proximas = (fila or {}).get("queue") or []
+            if tocando_fila.get("uri") != item.get("uri") or not proximas:
+                motivo = "faixa mudou durante a consulta" if proximas else "fila vazia"
+                self.log(f"Spotify a seguir: {motivo}; sem prévia nesta reprodução.")
+                return
+            proxima = proximas[0]
+            if proxima.get("type") != "track" or not proxima.get("name"):
+                self.log("Spotify a seguir: próximo item não é uma faixa com título.")
+                return
+            imagens = (proxima.get("album") or {}).get("images") or []
+            imagens = [img for img in imagens if img.get("url")]
+            if not imagens:
+                self.log("Spotify a seguir: próxima faixa sem imagem de álbum.")
+                return
+            # Prefere 300 px: suficiente para a capa circular de 240 px.
+            imagem = min(imagens, key=lambda img: abs((img.get("width") or 300) - 300))
+            url = imagem["url"]
+            dados = self._cache_capas_fila.get(url)
+            if dados is None:
+                dados = self._baixar(url, timeout=4)
+                if len(self._cache_capas_fila) >= 4:
+                    self._cache_capas_fila.pop(next(iter(self._cache_capas_fila)))
+                self._cache_capas_fila[url] = dados
+            if not self.parar.is_set() and self.ler_estado().get("reproducao_id") == reproducao:
+                self.ao_proxima(reproducao, proxima.get("uri"), proxima["name"], dados,
+                                item.get("duration_ms", 0) / 1000.0)
+        except Exception as exc:
+            mensagem = f"HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else str(exc)
+            self.log(f"Spotify a seguir: consulta indisponível ({mensagem}); mantendo a faixa atual.")
+
     @staticmethod
     def _id_playlist(uri):
         partes = uri.split(":")
@@ -171,24 +251,30 @@ class SpotifyPlaylistWatcher:
         raise ValueError("URI de playlist do Spotify inválido")
 
     @staticmethod
-    def _baixar(url):
+    def _baixar(url, timeout=10):
         req = urllib.request.Request(url, headers={"User-Agent": "TuringScreen/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as resposta:
+        with urllib.request.urlopen(req, timeout=timeout) as resposta:
             return resposta.read(8 * 1024 * 1024 + 1)[:8 * 1024 * 1024]
 
-    def _api(self, url, token):
+    def _api(self, url, token, timeout=10):
         try:
-            return _ler_json_http(url, cabecalhos={"Authorization": f"Bearer {token}"})
+            return _ler_json_http(url, cabecalhos={"Authorization": f"Bearer {token}"}, timeout=timeout)
         except urllib.error.HTTPError as exc:
             if exc.code == 401 and self.token and self.token.get("refresh_token"):
                 self.token["expires_at"] = 0
                 token = self._renovar_token()
-                return _ler_json_http(url, cabecalhos={"Authorization": f"Bearer {token}"})
+                return _ler_json_http(url, cabecalhos={"Authorization": f"Bearer {token}"}, timeout=timeout)
             raise
 
     def _obter_token(self):
         if self.token is None:
             self.token = self._ler_token()
+        if (self.token and not set(ESCOPO.split()).issubset(set(self.token.get("scope", "").split()))
+                and not self._autorizacao_ampliada_tentada):
+            self._autorizacao_ampliada_tentada = True
+            self.log("Spotify a seguir: precisa de autorização adicional para ler a fila; abrindo o navegador.")
+            # O token anterior permanece salvo se a nova autorização for cancelada.
+            return self._autorizar()
         if self.token and self.token.get("access_token") and time.time() < self.token.get("expires_at", 0) - 60:
             return self.token["access_token"]
         if self.token and self.token.get("refresh_token"):
@@ -308,6 +394,7 @@ class SpotifyPlaylistWatcher:
                 pass
             return self._autorizar()
         resposta["refresh_token"] = resposta.get("refresh_token", self.token["refresh_token"])
+        resposta["scope"] = resposta.get("scope", self.token.get("scope", ""))
         resposta["expires_at"] = time.time() + resposta.get("expires_in", 3600)
         self._salvar_token(resposta)
         return resposta["access_token"]

@@ -58,6 +58,9 @@ ESCONDER_PAUSADO = True
 FALHAS_MAX = 10
 ESPERA_RECONEXAO = 5
 KBPS = 5000               # reduz a fila USB mantendo o alvo de 60 FPS
+PROXIMA_ANTECEDENCIA = 22.0
+PROXIMA_DURACAO = 7.0
+PROXIMA_RETORNO_ALBUM = PROXIMA_ANTECEDENCIA - PROXIMA_DURACAO
 
 parar = threading.Event()
 estado = {
@@ -65,6 +68,7 @@ estado = {
     "cor_viva": (30, 215, 96, 255),
     "capa_playlist": None, "cor_playlist": None, "cor_viva_playlist": None,
     "playlist_uri": None, "playlist_nome": None, "playlist_evento": 0,
+    "reproducao_id": 0, "proxima_faixa": None,
     "pos": 0.0, "dur": 0.0, "t_poll": 0.0, "tocando": False,
     "midia_pronta": False,
     "volume": None, "volume_exibir_ate": 0.0,
@@ -186,6 +190,23 @@ def atualizar_capa_playlist(uri, nome, dados):
         log(f"Spotify playlist: capa carregada ({nome or 'sem nome'}).")
     except Exception as exc:
         log(f"Spotify playlist: erro preparando a capa: {exc}")
+
+
+def atualizar_proxima_faixa(reproducao, uri, nome, dados, duracao_spotify):
+    """Prepara a imagem na thread Spotify e publica tudo numa única referência."""
+    if estado.get("reproducao_id") != reproducao:
+        return
+    try:
+        capa, _, _ = preparar_capa(dados, calcular_cores=False)
+        if estado.get("reproducao_id") == reproducao:
+            estado["proxima_faixa"] = {
+                "reproducao_id": reproducao, "uri": uri, "nome": nome, "capa": capa,
+                "duracao_spotify": duracao_spotify,
+            }
+            log(f"Spotify a seguir: capa preparada ({nome}).")
+    except Exception as exc:
+        log(f"Spotify a seguir: erro preparando a capa: {exc}")
+
 
 _cache_marquee_pos = 0.0
 _cache_marquee_titulo = None
@@ -400,7 +421,8 @@ def renderizar(snap):
         y_texto = cy + raio_anel + 20 + dy_texto
         y_titulo = y_texto
         if modo_playlist_texto:
-            txt(d, cx, y_texto, "Você está ouvindo", F_ARTISTA, (200, 200, 200, 255))
+            txt(d, cx, y_texto, snap.get("rotulo_aviso") or "Você está ouvindo",
+                F_ARTISTA, (200, 200, 200, 255))
             y_titulo += 25
         
         LARGURA_MAXIMA = 325  
@@ -633,6 +655,11 @@ class Painel:
         self._diag_tempos = {}
         self._diag_playlist_ativa = False
         self._diag_playlist_uri = None
+        # Sobrevivem à pausa: o mesmo aviso não entra duas vezes na mesma faixa.
+        self._proxima_reproducao = None
+        self._proxima_ja_mostrada = False
+        self._proxima_ate = 0.0
+        self._proxima_inicio = None
         self._zerar()
 
     def _zerar(self):
@@ -645,6 +672,8 @@ class Painel:
         self.titulo_alvo = None
         self.modo_playlist_texto = False
         self.modo_playlist_texto_alvo = False
+        self.rotulo_aviso = None
+        self.rotulo_aviso_alvo = None
         self.t_texto = None     # início da animação de troca de texto
         self.angulo = 0.0
         self.vel = 0.0
@@ -652,6 +681,10 @@ class Painel:
         self._r_t0 = 0.0
         self._r_v0 = 0.0
         self.exibindo_playlist = False
+        self.exibindo_proxima = False
+        self._album_atual = None
+        self._musica_atual = None
+        self._cor_album_atual = None
         self._playlist_uri_timer = None
         self._playlist_evento_visto = 0
         self._proxima_mensagem_playlist = None
@@ -709,31 +742,46 @@ class Painel:
         musica = snap.get("musica")
         cap = snap.get("capa")
         cap_playlist = snap.get("capa_playlist") if snap.get("mostrar_capa_playlist") else None
+        proxima = snap.get("proxima_faixa") if snap.get("mostrar_proxima") else None
+        cap_aviso = proxima["capa"] if proxima else cap_playlist
         # A paleta da tela e dos LEDs continua vindo da capa do álbum.
         cor_base = snap.get("cor_viva") or snap.get("cor_capa")
         cor_nova = _cor_rgba(cor_base)
 
         if tocando:
+            self._album_atual, self._musica_atual = cap, musica
+            self._cor_album_atual = cor_nova
+        restaurar_pausado = not tocando and self.exibindo_proxima
+        if restaurar_pausado:
+            # Ao pausar o aviso, volta ao álbum enquanto o disco desacelera.
+            cap, musica, cor_nova = self._album_atual, self._musica_atual, self._cor_album_atual
+
+        if tocando or restaurar_pausado:
             # Texto da faixa e aviso da playlist compartilham a mesma animação.
-            modo_playlist_alvo = bool(snap.get("mensagem_playlist"))
+            rotulo_alvo = "A seguir" if proxima else (
+                "Você está ouvindo" if snap.get("mensagem_playlist") else None)
+            modo_playlist_alvo = rotulo_alvo is not None
             texto_alvo = (
-                (snap.get("playlist_nome") or "", "")
-                if modo_playlist_alvo else musica
+                (proxima["nome"], "") if proxima else
+                ((snap.get("playlist_nome") or "", "") if modo_playlist_alvo else musica)
             )
             if self.titulo is None:
                 self.titulo = self.titulo_alvo = texto_alvo
                 self.modo_playlist_texto = self.modo_playlist_texto_alvo = modo_playlist_alvo
+                self.rotulo_aviso = self.rotulo_aviso_alvo = rotulo_alvo
             elif (texto_alvo != self.titulo_alvo
-                  or modo_playlist_alvo != self.modo_playlist_texto_alvo):
+                  or rotulo_alvo != self.rotulo_aviso_alvo):
                 self.titulo_alvo = texto_alvo
                 self.modo_playlist_texto_alvo = modo_playlist_alvo
+                self.rotulo_aviso_alvo = rotulo_alvo
                 self.t_texto = agora
             # Playlist e álbum usam a mesma transição circular de troca de capa.
-            capa_alvo = cap_playlist if cap_playlist is not None else cap
-            self.exibindo_playlist = cap_playlist is not None
+            capa_alvo = cap_aviso if cap_aviso is not None else cap
+            self.exibindo_playlist = cap_aviso is not None
+            self.exibindo_proxima = proxima is not None
             if capa_alvo is not None and capa_alvo is not self.alvo:
                 retomou_mesma = (
-                    cap_playlist is None and not self.estava_tocando
+                    cap_aviso is None and not self.estava_tocando
                     and self.capa is not None and musica == self.titulo
                 )
                 if retomou_mesma:
@@ -772,6 +820,7 @@ class Painel:
             else:
                 self.titulo = self.titulo_alvo
                 self.modo_playlist_texto = self.modo_playlist_texto_alvo
+                self.rotulo_aviso = self.rotulo_aviso_alvo
                 u = (t - TEXTO_SAI) / TEXTO_ENTRA
                 if u >= 1:
                     self.t_texto = None
@@ -802,7 +851,8 @@ class Painel:
         snap.update(musica=self.titulo, capa=capa_img, cor_viva=cor, cor_capa=cor,
                     texto_alpha=ta, texto_dy=dy, hud_alpha=_suave(self.hud),
                     volume_visual=self.volume_anim,
-                    modo_playlist_texto=self.modo_playlist_texto, tempo_visual=agora)
+                    modo_playlist_texto=self.modo_playlist_texto,
+                    rotulo_aviso=self.rotulo_aviso, tempo_visual=agora)
         inicio_render = time.perf_counter()
         self._diag_tempos["animacao_ms"] = (inicio_render - inicio_animacao) * 1000
         quadro = renderizar(snap)
@@ -827,6 +877,34 @@ class Painel:
         return {**self._diag_tempos, "playlist": self.exibindo_playlist,
                 "texto_animando": self.t_texto is not None, "hud": self.hud > 0.01}
 
+    def _aviso_proxima(self, snap, agora, tocando):
+        reproducao = snap.get("reproducao_id", 0)
+        if reproducao != self._proxima_reproducao:
+            self._proxima_reproducao = reproducao
+            self._proxima_ja_mostrada = False
+            self._proxima_ate = 0.0
+            self._proxima_inicio = None
+        proxima = snap.get("proxima_faixa") or {}
+        # A duração do Windows pode ser menor (ex.: 243,6s contra 249,6s na API).
+        duracao = proxima.get("duracao_spotify") or snap.get("dur", 0.0)
+        restante = duracao - snap.get("pos", 0.0)
+        if tocando:
+            restante -= max(0.0, time.monotonic() - snap.get("t_poll", 0.0))
+        valida = (tocando and proxima.get("reproducao_id") == reproducao
+                  and proxima.get("capa") is not None and snap.get("capa") is not None
+                  and 0.0 < restante <= PROXIMA_ANTECEDENCIA)
+        # Não abre um aviso tarde demais para retornar ao álbum antes da troca.
+        if valida and restante > PROXIMA_RETORNO_ALBUM and not self._proxima_ja_mostrada:
+            self._proxima_ja_mostrada = True
+            self._proxima_inicio = agora
+            self._proxima_ate = agora + PROXIMA_DURACAO
+            log(f"Spotify a seguir: exibindo {proxima['nome']} (faltam {restante:.1f}s).")
+        if not valida or restante <= PROXIMA_RETORNO_ALBUM:
+            self._proxima_ate = 0.0
+        mostrar = valida and agora < self._proxima_ate
+        snap["mostrar_proxima"] = mostrar
+        return valida
+
     def quadro(self, agora):
         self._diag_tempos = {"fundo_ms": 0.0, "animacao_ms": 0.0,
                              "desenhar_ms": 0.0, "compor_ms": 0.0,
@@ -837,6 +915,7 @@ class Painel:
 
         snap = dict(estado)
         tocando = snap.get("musica") is not None
+        reservar_final = self._aviso_proxima(snap, agora, tocando)
         uri_playlist = snap.get("playlist_uri") if tocando and snap.get("capa_playlist") is not None else None
         evento_playlist = snap.get("playlist_evento", 0)
         if evento_playlist != self._playlist_evento_visto and uri_playlist:
@@ -855,6 +934,10 @@ class Painel:
             self._mensagem_playlist_ate = agora + 7.0
             self._inicio_mensagem_playlist = agora
             self._proxima_mensagem_playlist = agora + 60.0
+        if reservar_final:
+            # A seguir tem prioridade; adia a playlist para evitar avisos seguidos.
+            self._mensagem_playlist_ate = 0.0
+            self._proxima_mensagem_playlist = agora + 60.0 if uri_playlist else None
         mostrar_playlist = bool(uri_playlist and agora < self._mensagem_playlist_ate)
         if (mostrar_playlist != self._diag_playlist_ativa
                 or (mostrar_playlist and uri_playlist != self._diag_playlist_uri)):
@@ -869,7 +952,8 @@ class Painel:
             f"Você está ouvindo '{snap.get('playlist_nome')}'"
             if mostrar_playlist and snap.get("playlist_nome") else None
         )
-        snap["mensagem_playlist_inicio"] = self._inicio_mensagem_playlist
+        snap["mensagem_playlist_inicio"] = (
+            self._proxima_inicio if snap["mostrar_proxima"] else self._inicio_mensagem_playlist)
         if tocando:
             self.t_pausa = None
         elif self.estava_tocando:
@@ -1017,6 +1101,7 @@ async def vigiar_spotify():
     mgr = await MediaManager.request_async()
     chave, capa_carregada_para, tentativas, ultimo_erro = None, None, 0, ""
     proxima_tentativa_capa = 0.0
+    ultima_reproducao, ultima_pos = None, 0.0
     while not parar.is_set():
         try:
             sessao = None
@@ -1093,9 +1178,15 @@ async def vigiar_spotify():
                     if 0 <= extra <= dur:
                         pos += extra
                 
+                # Pausar mantém o identificador; trocar/voltar na faixa invalida a fila.
+                mudou_reproducao = nova != ultima_reproducao or pos < ultima_pos - 2.0
+                reproducao_id = estado["reproducao_id"] + int(mudou_reproducao)
+                ultima_reproducao, ultima_pos = nova, pos
                 estado.update(
                     musica=nova, pos=pos, dur=dur,
                     t_poll=time.monotonic(), tocando=tocando,
+                    reproducao_id=reproducao_id,
+                    proxima_faixa=None if mudou_reproducao else estado.get("proxima_faixa"),
                 )
                 # Só libera o OpenRGB após tentar obter a capa que define a cor inicial.
                 if estado.get("capa") is not None or tentativas >= 2:
@@ -1113,7 +1204,9 @@ async def main_async():
 
 
 def main():
-    watcher_playlist = SpotifyPlaylistWatcher(atualizar_capa_playlist, log)
+    watcher_playlist = SpotifyPlaylistWatcher(
+        atualizar_capa_playlist, log,
+        ler_estado=lambda: dict(estado), ao_proxima=atualizar_proxima_faixa)
     watcher_playlist.iniciar()
     try:
         import leds_openrgb
